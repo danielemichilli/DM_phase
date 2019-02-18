@@ -3,12 +3,6 @@
 Find the best Dispersion Measure for a pulse by maximising the coherent power accross the bandwidth. 
 It is robust to complex burst structures and interference.
 
-### Installing
-
-```
-pip install DM_phase
-```
-
 ## Getting Started
 
 The necessary dependences will be installed automatically, except `psrchive` (see Prerequisites).
@@ -20,6 +14,12 @@ See the function documentation for details.
 ### Prerequisites
 
 Python module of `psrchive` is required to read PSRCHIVE files and it will not be installed automatically. See the [package page](http://psrchive.sourceforge.net/manuals/python/).
+
+### Installing
+
+```
+pip install DM_phase
+```
 
 ## Contributing
 

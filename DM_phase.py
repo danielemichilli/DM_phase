@@ -16,24 +16,25 @@ from scipy.fftpack import fft, ifft
 
 
 plt.rcParams['toolbar'] = 'None'
+plt.rcParams['keymap.yscale'] = 'Y'
 
 def _load_psrchive(fname):
     """
     Load data from a PSRCHIVE file.
     """
     
-    import psrchive
     archive = psrchive.Archive_load(fname)
     archive.set_dedispersed(False)  # Un-dedisperse
     archive.update()
     archive.pscrunch()
     archive.tscrunch()
     archive.remove_baseline()
+    archive.centre()
     w = archive.get_weights().squeeze()
     waterfall = archive.get_data().squeeze()
     waterfall *= w[:, np.newaxis]
-    f_ch = [archive.get_first_Integration().get_centre_frequency(i) for i in range(archive.get_nchan())]
-    dt = archive.get_time_resolution()
+    f_ch = np.array([archive.get_first_Integration().get_centre_frequency(i) for i in range(archive.get_nchan())])
+    dt = archive.get_first_Integration().get_duration() / archive.get_nbin()
     
     if archive.get_bandwidth() < 0: 
         waterfall = np.flipud(waterfall)
@@ -78,10 +79,10 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     """
     
     # Define axes
-    fig = plt.figure(figsize=(10., 8.5), facecolor='k')
-    fig.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace=0)
-    gs = gridspec.GridSpec(2, 3, hspace=0, wspace=0.1, height_ratios=[1, 4], width_ratios=[1, 3, 3])
-    ax_text = fig.add_subplot(gs[:, 0])
+    fig = plt.figure(figsize=(12., 8.5), facecolor='k')
+    fig.subplots_adjust(left=0, bottom=0.01, right=1, top=0.99, hspace=0)
+    gs = gridspec.GridSpec(2, 3, hspace=0, wspace=0.02, height_ratios=[1, 4], width_ratios=[2, 3, 2])
+    ax_text = fig.add_subplot(gs[1, 0])
     ax_pow_prof = fig.add_subplot(gs[0, 1])
     ax_pow_map = fig.add_subplot(gs[1, 1], sharex=ax_pow_prof)
     ax_wat_prof = fig.add_subplot(gs[0, 2])
@@ -92,12 +93,17 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     
     # Plot instructions
     ax_text.annotate("""
-    Press "u" to select upper limit.
-    Press "l" to select lower limit.
-    Press "U" to undo upper limit.
-    Press "L" to undo lower limit.
-    Press "g" for logarithmic scale.
-    """, (0.1,0.1))
+    Manual selection of
+      power limits.
+    
+    Press
+      "t" to select top limit.
+      "b" to select bottom limit.
+      "T" to undo upper limit.
+      "B" to undo lower limit.
+      "l" for logarithmic scale.
+      "q" to save and exit.
+    """, (0, 1), color='w', fontsize=14, horizontalalignment='left', verticalalignment='top', linespacing=1.5)
     
     # Plot power
     plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='spline16')
@@ -109,7 +115,7 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     # Plot waterfall
     top_lim = [Pow_list.shape[0],]
     bottom_lim = [0,]
-    DM, _ = _DM_calculation(Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], waterfall.shape[0], DM_list, no_plots=True)
+    DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
     waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
     plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
@@ -117,35 +123,49 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
 
     # GUI
-    def update_lim():
+    def update_lim(is_log):
+        if is_log: pow_map = np.log10(Pow_list[bottom_lim[-1] : top_lim[-1]])
+        else: pow_map = Pow_list[bottom_lim[-1] : top_lim[-1]]
+        plot_pow_map.set_clim(vmin=pow_map.min(), vmax=pow_map.max())
         ax_pow_map.set_ylim([bottom_lim[-1], top_lim[-1]])
         pow_prof = dPow_list[bottom_lim[-1] : top_lim[-1]].sum(axis=0)
         plot_pow_prof.set_ydata(pow_prof)
         ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
-        DM, _ = _DM_calculation(Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], nchan, DM_list, no_plots=True)
+        DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
         waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
         plot_wat_map.set_data(waterfall_dedisp)
+        return
 
+    is_log = [False]
     def press(event):
         sys.stdout.flush()
-        if event.key == "u":
+        if event.key == "t":
             y = int(round(event.ydata))
             top_lim.append(y)
-            update_lim()
-        if event.key == "l":
+            update_lim(is_log[0])
+        if event.key == "b":
             y = int(round(event.ydata))
             bottom_lim.append(y)
-            update_lim()
-        elif event.key == "U":
+            update_lim(is_log[0])
+        elif event.key == "T":
             if len(top_lim) > 1: del top_lim[-1]
-            update_lim()
-        elif event.key == "L":
+            update_lim(is_log[0])
+        elif event.key == "B":
             if len(bottom_lim) > 1: del bottom_lim[-1]
-            update_lim()
-        elif event.key == "g":
-            im.set_data(np.log10(Pow_list)) 
+            update_lim(is_log[0])
+        elif event.key == "l":
+            if is_log[0]:
+                plot_pow_map.set_data(Pow_list)
+                plot_pow_map.set_clim(vmin=Pow_list[bottom_lim[-1] : top_lim[-1]].min(), vmax=Pow_list[bottom_lim[-1] : top_lim[-1]].max()) 
+                is_log[0] = False
+            else:
+                Pow_list_log = np.log10(Pow_list)
+                plot_pow_map.set_data(Pow_list_log)
+                plot_pow_map.set_clim(vmin=Pow_list_log[bottom_lim[-1] : top_lim[-1]].min(), vmax=Pow_list_log[bottom_lim[-1] : top_lim[-1]].max()) 
+                is_log[0] = True
         fig.canvas.draw()
     _ = fig.canvas.mpl_connect('key_press_event', press)
+
 
     plt.show()
     return bottom_lim[-1], top_lim[-1]
@@ -194,7 +214,7 @@ def _Poly_Max(x, y, Err):
     
     return np.real(Best), delta_x, p , Fac
   
-def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, filename=""):
+def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     """
     Diagnostic plot of Coherent Power vs Dispersion Measure
     """
@@ -208,7 +228,7 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, filename=""):
     
     Title = '{0:}\n\
         Best DM = {1:.3f} $\pm$ {2:.3f}\n\
-        S/N = {3:.1f}'.format(filename, Returns_Poly[0], Returns_Poly[1], SN)
+        S/N = {3:.1f}'.format(fname, Returns_Poly[0], Returns_Poly[1], SN)
     fig.suptitle(Title, color='w', linespacing=1.5) 
     
     # Profile
@@ -217,6 +237,7 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, filename=""):
     ax_prof.set_xlim([X.min(), X.max()])
     ax_prof.set_ylim([Y.min(), Y.max()])
     ax_prof.axis('off')
+    ax_prof.ticklabel_format(useOffset=False)
         
     # Residuals
     Res = y - np.polyval(Returns_Poly[2], x)
@@ -228,25 +249,25 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, filename=""):
     ax_res.tick_params(axis='both', colors='w', labelbottom='off', labelleft='off', direction='in', left='off', top='on')
     ax_res.yaxis.label.set_color('w')
     ax_res.set_facecolor('k')
-
+    ax_res.ticklabel_format(useOffset=False)
+    
     # Power vs DM map      
     FT_len = DM_Map.shape[0]
-    ar = psrchive.Archive_load(filename)
-    dt = ar.get_first_Integration().get_duration()
-    Bin_len = ar.get_nbin()
-    extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / Bin_len / dt]
+    extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / t_res]
     ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='spline16')
     ax_map.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
     ax_map.xaxis.label.set_color('w')
     ax_map.yaxis.label.set_color('w')
     ax_map.set_xlabel('DM (pc / cc)')
     ax_map.set_ylabel('w (rad / ms)')
+    ax_map.ticklabel_format(useOffset=False)
     try: fig.align_ylabels([ax_map, ax_res])  #Recently added feature
     except AttributeError:
         ax_map.yaxis.set_label_coords(-0.07, 0.5)
         ax_res.yaxis.set_label_coords(-0.07, 0.5)
-
-    fig.savefig(filename, facecolor='k', edgecolor='k')
+        
+    if fname != "": fname += "_"
+    fig.savefig(fname + "DM_Search.pdf", facecolor='k', edgecolor='k')
     return  
 
 def _get_Window(Pro):
@@ -296,7 +317,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname=""):
         ax_prof = fig.add_subplot(gs[0])
         ax_wfall = fig.add_subplot(gs[1], sharex=ax_prof)
         
-        wfall = _dedisperse_waterfall(waterfall, dm)
+        wfall = _dedisperse_waterfall(waterfall, dm, f, dt)
         prof = wfall.sum(axis=0)
         
         # Find the time range around the pulse
@@ -332,7 +353,8 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname=""):
         ax_wfall.yaxis.label.set_color('w')
         ax_wfall.xaxis.label.set_color('w')
 
-    fig.savefig(fname, facecolor='k', edgecolor='k')
+    if fname != "": fname += "_"
+    fig.savefig(fname + "Waterfall_5sig.pdf", facecolor='k', edgecolor='k')
     return
 
 def _dedisperse_waterfall(wfall, DM, freq, dt):
@@ -343,16 +365,17 @@ def _dedisperse_waterfall(wfall, DM, freq, dt):
     k_DM = 1. / 2.41e-4
     dedisp = np.zeros_like(wfall)
     shift = (k_DM * DM * (freq[-1]**-2 - freq**-2) / dt).round().astype(int)
-    for i,ts in wfall:
+    for i,ts in enumerate(wfall):
         dedisp[i] = np.roll(ts, shift[i])
     return dedisp
     
-def _init_DM(archive, DM_s, DM_e):
+def _init_DM(fname, DM_s, DM_e):
     """
     Initialize DM limits of the search if not specified.
     """
     
-    DM = archive.get_dm()
+    archive = psrchive.Archive_load(fname)
+    DM = archive.get_dispersion_measure()
     if DM_s is None: DM_s = DM - 10
     if DM_e is None: DM_e = DM + 10
     return DM_s, DM_e
@@ -384,12 +407,12 @@ def from_PSRCHIVE(fname, DM_s, DM_e, DM_step, manual_cutoff=False, no_plots=Fals
     ------
     basename(fname) + "_Waterfall_5sig.pdf" : plot
         Pulse waterfall at the best Dispersion Measure and 5 sigmas away
-    basename(filename) + "_DM_Search.pdf": plot
+    basename(fname) + "_DM_Search.pdf": plot
         Map of the coherent power as a function of the search Dispersion Measure.
     """
     
     waterfall, f_channels, t_res = _load_psrchive(fname)
-    DM_s, DM_e = _init_DM(archive, DM_s, DM_e)
+    DM_s, DM_e = _init_DM(fname, DM_s, DM_e)
     DM_list = np.arange(np.float(DM_s), np.float(DM_e), np.float(DM_step))
     DM, DM_std = get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=manual_cutoff, fname=os.path.basename(fname), no_plots=no_plots)
     return DM, DM_std
@@ -440,10 +463,10 @@ def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnosti
     if manual_cutoff: low_idx, up_idx = _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels, t_res)
     else: low_idx, up_idx = _get_f_threshold(Pow_list, Mean, STD)
     
-    DM, DM_std = _DM_calculation(Pow_list, dPow_list, low_idx, up_idx, no_plots=no_plots)
+    DM, DM_std = _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels, t_res, DM_list, no_plots=no_plots, fname=fname)
     return DM, DM_std
     
-def _DM_calculation(Pow_list, dPow_list, low_idx, up_idx, nchan, DM_list, no_plots=False):
+def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels, t_res, DM_list, no_plots=False, fname=""):
     """
     Calculate the best DM value.
     """
@@ -452,6 +475,7 @@ def _DM_calculation(Pow_list, dPow_list, low_idx, up_idx, nchan, DM_list, no_plo
 
     fact_idx = up_idx - low_idx
     Max   = DM_curve.max()
+    nchan = len(f_channels)
     Mean  = nchan  # Base on Gamma(2,)
     STD   = Mean / np.sqrt(2)  # Base on Gamma(2,)
     dMean = fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) / 6. * Mean
@@ -465,9 +489,8 @@ def _DM_calculation(Pow_list, dPow_list, low_idx, up_idx, nchan, DM_list, no_plo
     Returns_Poly = _Poly_Max(x, y, dSTD)
     
     if not no_plots:
-        if fname != "": fname += "_"
-        _plot_Power(Pow_list[low_idx : up_idx], DM_list, DM_curve, Range, Returns_Poly, x, y, SN, fname=fname+"DM_Search.pdf")
-        _plot_waterfall(Returns_Poly, waterfall, t_res, f_channels, fact_idx, fname=fname+"Waterfall_5sig.pdf")
+        _plot_Power(Pow_list[low_idx : up_idx], DM_list, DM_curve, Range, Returns_Poly, x, y, SN, t_res, fname=fname)
+        _plot_waterfall(Returns_Poly, waterfall, t_res, f_channels, fact_idx, fname=fname)
     
     DM = Returns_Poly[0]
     DM_std = Returns_Poly[1]
@@ -491,6 +514,7 @@ def _get_parser():
 
 if __name__ == "__main__":
     args = _get_parser()
+    import psrchive
     DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual_cutoff, no_plots=args.no_plots)
 
 
