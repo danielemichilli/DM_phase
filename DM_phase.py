@@ -10,7 +10,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.widgets import Button
+from matplotlib.widgets import Cursor, SpanSelector
 import scipy.signal
 from scipy.fftpack import fft, ifft
 
@@ -24,11 +24,11 @@ def _load_psrchive(fname):
     """
     
     archive = psrchive.Archive_load(fname)
-    archive.set_dedispersed(False)  # Un-dedisperse
-    archive.update()
     archive.pscrunch()
+    archive.set_dispersion_measure(0.)  # Un-dedisperse
+    archive.dedisperse()
+    archive.set_dedispersed(False)
     archive.tscrunch()
-    archive.remove_baseline()
     archive.centre()
     w = archive.get_weights().squeeze()
     waterfall = archive.get_data().squeeze()
@@ -69,7 +69,7 @@ def _get_f_threshold(Pow_list, MEAN, STD):
 
     s   = np.max(Pow_list, axis=1)
     SN  = (s - MEAN) / STD 
-    Kern = np.round(_get_Window(SN * (SN > 5)) / 2.).astype(int)
+    Kern = np.round( _get_Window(SN) / 2.).astype(int)
     if Kern < 5: Kern = 5
     return 0, Kern
 
@@ -80,37 +80,24 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     
     # Define axes
     fig = plt.figure(figsize=(12., 8.5), facecolor='k')
-    fig.subplots_adjust(left=0, bottom=0.01, right=1, top=0.99, hspace=0)
+    fig.subplots_adjust(left=0.01, bottom=0.01, right=0.95, top=0.94, hspace=0)
     gs = gridspec.GridSpec(2, 3, hspace=0, wspace=0.02, height_ratios=[1, 4], width_ratios=[2, 3, 2])
-    ax_text = fig.add_subplot(gs[1, 0])
+    ax_text     = fig.add_subplot(gs[1, 0])
     ax_pow_prof = fig.add_subplot(gs[0, 1])
-    ax_pow_map = fig.add_subplot(gs[1, 1], sharex=ax_pow_prof)
+    ax_pow_map  = fig.add_subplot(gs[1, 1], sharex=ax_pow_prof)
     ax_wat_prof = fig.add_subplot(gs[0, 2])
-    ax_wat_map = fig.add_subplot(gs[1, 2], sharex=ax_wat_prof)
+    ax_wat_map  = fig.add_subplot(gs[1, 2], sharex=ax_wat_prof)
     
     for ax in fig.axes:
         ax.axis('off')
     
-    # Plot instructions
-    ax_text.annotate("""
-    Manual selection of
-      power limits.
-    
-    Press
-      "t" to select top limit.
-      "b" to select bottom limit.
-      "T" to undo upper limit.
-      "B" to undo lower limit.
-      "l" for logarithmic scale.
-      "q" to save and exit.
-    """, (0, 1), color='w', fontsize=14, horizontalalignment='left', verticalalignment='top', linespacing=1.5)
-    
     # Plot power
-    plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='spline16')
+    plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
     ax_pow_map.set_ylim([0, Pow_list.shape[0]])
     pow_prof = dPow_list.sum(axis=0)
     plot_pow_prof, = ax_pow_prof.plot(pow_prof, 'w-', linewidth=2, clip_on=False)
     ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
+    ax_pow_prof.set_title('Coherent power', fontsize=16, color='w', y=1.08)
     
     # Plot waterfall
     top_lim = [Pow_list.shape[0],]
@@ -119,8 +106,32 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
     plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
-    plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2, clip_on=False)
+    plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
+    ax_wat_prof.set_xlim([0, wat_prof.size])
+    ax_wat_prof.set_title("Waterfall", fontsize=16, color='w', y=1.08)
+    
+    # Plot instructions
+    text = """    
+    Manual selection of
+      power limits.
+      
+    Current best DM = {:0.2f}
+    
+    On the left plot, press
+      "t" to select top limit.
+      "b" to select bottom limit.
+      "T" to undo upper limit.
+      "B" to undo lower limit.
+      "l" for logarithmic scale.
+      "q" to save and exit.
+      
+    On the right plot, 
+      drag mouse to zoom in.
+      space bar to reset zoom.
+      
+    """
+    instructions = ax_text.annotate(text.format(DM), (0, 1), color='w', fontsize=14, horizontalalignment='left', verticalalignment='top', linespacing=1.5)
 
     # GUI
     def update_lim(is_log):
@@ -134,8 +145,9 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
         waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
         plot_wat_map.set_data(waterfall_dedisp)
-        return
-
+        instructions.set_text(text.format(DM))
+        return 
+    
     is_log = [False]
     def press(event):
         sys.stdout.flush()
@@ -163,12 +175,35 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
                 plot_pow_map.set_data(Pow_list_log)
                 plot_pow_map.set_clim(vmin=Pow_list_log[bottom_lim[-1] : top_lim[-1]].min(), vmax=Pow_list_log[bottom_lim[-1] : top_lim[-1]].max()) 
                 is_log[0] = True
+        elif event.key == " ": 
+            ax_wat_prof.set_xlim([0, wat_prof.size])
+            xlim[0] = 0
+            xlim[1] = wat_prof.size
         fig.canvas.draw()
-    _ = fig.canvas.mpl_connect('key_press_event', press)
+        return
+    
+    xlim = [0, wat_prof.size]
+    def onselect_prof(xmin, xmax):
+        ax_wat_prof.set_xlim(xmin, xmax)
+        xlim[0] = int(xmin)
+        xlim[1] = int(xmax)
+        fig.canvas.draw()
+        return
+        
+    def onselect_map(xmin, xmax):
+        ax_wat_prof.set_xlim(xmin, xmax)
+        xlim[0] = int(xmin)
+        xlim[1] = int(xmax)
+        fig.canvas.draw()
+        return
 
+    span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='g'))
+    span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='g'))
+    cursor = Cursor(ax_pow_map, useblit=True, color='g', linewidth=2, vertOn=False)
+    key = fig.canvas.mpl_connect('key_press_event', press)
 
     plt.show()
-    return bottom_lim[-1], top_lim[-1]
+    return bottom_lim[-1], top_lim[-1], xlim
 
 def _get_TP(series):
     """
@@ -209,8 +244,8 @@ def _Poly_Max(x, y, Err):
         Best      = first_cut[Value.argmax()]
         delta_x   = np.sqrt(np.abs(2 * Err / np.polyval(ddp, Best)))
     else:
-        Best    = 0
-        delta_x = 0
+        Best    = 0.
+        delta_x = 0.
     
     return np.real(Best), delta_x, p , Fac
   
@@ -253,13 +288,13 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     
     # Power vs DM map      
     FT_len = DM_Map.shape[0]
-    extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / t_res]
-    ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='spline16')
+    extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / (t_res * 1e6)]
+    ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='nearest')
     ax_map.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
     ax_map.xaxis.label.set_color('w')
     ax_map.yaxis.label.set_color('w')
     ax_map.set_xlabel('DM (pc / cc)')
-    ax_map.set_ylabel('w (rad / ms)')
+    ax_map.set_ylabel('w (rad / us)')
     ax_map.ticklabel_format(useOffset=False)
     try: fig.align_ylabels([ax_map, ax_res])  #Recently added feature
     except AttributeError:
@@ -298,7 +333,7 @@ def _check_W(Pro, W):
     if End > Pro.size - 1: End = Pro.size - 1
     return Start,End
 
-def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname=""):
+def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None):
     """
     Plot the waterfall at the best Dispersion Measure and at close values for comparison. 
     """
@@ -321,7 +356,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname=""):
         prof = wfall.sum(axis=0)
         
         # Find the time range around the pulse
-        if j==0: 
+        if (j == 0) and (Win is None):
             W = _get_Window(prof)
             Spect = _get_Spect(wfall)
             Filter = np.ones_like(Spect)
@@ -331,7 +366,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname=""):
             Win = _check_W(Spike, W)
 
         # Profile
-        T = dt * (Win[1] - Win[0])
+        T = dt * (Win[1] - Win[0]) * 1000
         x = np.linspace(0, T, Win[1] - Win[0])
         y = prof[Win[0] : Win[1]]
         ax_prof.plot(x, y, 'w', linewidth=0.5, clip_on=False)
@@ -454,32 +489,36 @@ def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnosti
         waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
         Pow = _get_Pow(waterfall_dedisp)
         Pow_list[:, i] = Pow[: nbin]
-    
+
     v = np.arange(0, nbin)
     dPow_list = Pow_list * v[:, np.newaxis]**2
     
-    Mean     = nchan  # Base on Gamma(2,)
-    STD      = Mean / np.sqrt(2)  # Base on Gamma(2,)
-    if manual_cutoff: low_idx, up_idx = _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels, t_res)
-    else: low_idx, up_idx = _get_f_threshold(Pow_list, Mean, STD)
+    Mean     = nchan               # Base on Gamma(2,)
+    STD      = nchan / np.sqrt(2)  # Base on Gamma(2,)
+    if manual_cutoff: low_idx, up_idx, phase_lim = _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels, t_res)
+    else: 
+        low_idx, up_idx = _get_f_threshold(Pow_list, Mean, STD)
+        phase_lim = None
     
-    DM, DM_std = _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels, t_res, DM_list, no_plots=no_plots, fname=fname)
+    DM, DM_std = _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels, t_res, DM_list, no_plots=no_plots, fname=fname, phase_lim=phase_lim)
     return DM, DM_std
     
-def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels, t_res, DM_list, no_plots=False, fname=""):
+def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels, t_res, DM_list, no_plots=False, fname="", phase_lim=None):
     """
     Calculate the best DM value.
     """
 
-    DM_curve = dPow_list[low_idx : up_idx].sum(axis=0)
+    DM_curve = Pow_list[low_idx : up_idx].sum(axis=0)
 
     fact_idx = up_idx - low_idx
     Max   = DM_curve.max()
     nchan = len(f_channels)
-    Mean  = nchan  # Base on Gamma(2,)
+    Mean  = nchan              # Base on Gamma(2,)
     STD   = Mean / np.sqrt(2)  # Base on Gamma(2,)
-    dMean = fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) / 6. * Mean
-    dSTD  = STD * np.sqrt(fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) * (3 * fact_idx**2 + 3 * fact_idx - 1) / 30.)
+    #dMean = fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) / 6. * Mean
+    #dSTD  = STD * np.sqrt(fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) * (3 * fact_idx**2 + 3 * fact_idx - 1) / 30.)
+    dMean = Mean * fact_idx
+    dSTD  = STD  * fact_idx**0.5 
     SN    = (Max - dMean) / dSTD
     
     Peak  = DM_curve.argmax()
@@ -490,7 +529,7 @@ def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels,
     
     if not no_plots:
         _plot_Power(Pow_list[low_idx : up_idx], DM_list, DM_curve, Range, Returns_Poly, x, y, SN, t_res, fname=fname)
-        _plot_waterfall(Returns_Poly, waterfall, t_res, f_channels, fact_idx, fname=fname)
+        _plot_waterfall(Returns_Poly, waterfall, t_res, f_channels, fact_idx, fname=fname, Win=phase_lim)
     
     DM = Returns_Poly[0]
     DM_std = Returns_Poly[1]
@@ -516,5 +555,3 @@ if __name__ == "__main__":
     args = _get_parser()
     import psrchive
     DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual_cutoff, no_plots=args.no_plots)
-
-
