@@ -31,8 +31,9 @@ def _load_psrchive(fname):
     archive.tscrunch()
     archive.centre()
     w = archive.get_weights().squeeze()
-    waterfall = archive.get_data().squeeze()
-    waterfall *= w[:, np.newaxis]
+    waterfall = np.ma.masked_array(archive.get_data().squeeze())
+    #waterfall *= w[:, np.newaxis]
+    waterfall[w == 0] = np.ma.masked
     f_ch = np.array([archive.get_first_Integration().get_centre_frequency(i) for i in range(archive.get_nchan())])
     dt = archive.get_first_Integration().get_duration() / archive.get_nbin()
     
@@ -69,7 +70,7 @@ def _get_f_threshold(Pow_list, MEAN, STD):
 
     s   = np.max(Pow_list, axis=1)
     SN  = (s - MEAN) / STD 
-    Kern = np.round( _get_Window(SN) / 2.).astype(int)
+    Kern = np.round( _get_Window(np.log(np.abs(SN)))).astype(int)
     if Kern < 5: Kern = 5
     return 0, Kern
 
@@ -112,7 +113,7 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     ax_wat_prof.set_title("Waterfall", fontsize=16, color='w', y=1.08)
     
     # Plot instructions
-    text = """    
+    text = """
     Manual selection of
       power limits.
       
@@ -197,9 +198,9 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         fig.canvas.draw()
         return
 
-    span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='g'))
-    span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', useblit=True, rectprops=dict(alpha=0.5, facecolor='g'))
-    cursor = Cursor(ax_pow_map, useblit=True, color='g', linewidth=2, vertOn=False)
+    span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
+    span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
+    cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
     key = fig.canvas.mpl_connect('key_press_event', press)
 
     plt.show()
@@ -351,6 +352,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None)
         gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=grid[j], height_ratios=[1, 4], hspace=0)
         ax_prof = fig.add_subplot(gs[0])
         ax_wfall = fig.add_subplot(gs[1], sharex=ax_prof)
+        ax_wfall.set_facecolor('k')
         
         wfall = _dedisperse_waterfall(waterfall, dm, f, dt)
         prof = wfall.sum(axis=0)
@@ -508,17 +510,17 @@ def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels,
     Calculate the best DM value.
     """
 
-    DM_curve = Pow_list[low_idx : up_idx].sum(axis=0)
+    DM_curve = dPow_list[low_idx : up_idx].sum(axis=0)
 
     fact_idx = up_idx - low_idx
     Max   = DM_curve.max()
     nchan = len(f_channels)
     Mean  = nchan              # Base on Gamma(2,)
     STD   = Mean / np.sqrt(2)  # Base on Gamma(2,)
-    #dMean = fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) / 6. * Mean
-    #dSTD  = STD * np.sqrt(fact_idx * (fact_idx + 1) * (2 * fact_idx + 1) * (3 * fact_idx**2 + 3 * fact_idx - 1) / 30.)
-    dMean = Mean * fact_idx
-    dSTD  = STD  * fact_idx**0.5 
+    m_fact = np.sum(np.arange(low_idx, up_idx)**2)
+    s_fact = np.sum(np.arange(low_idx, up_idx)**4)**0.5
+    dMean = Mean * m_fact
+    dSTD  = STD  * s_fact 
     SN    = (Max - dMean) / dSTD
     
     Peak  = DM_curve.argmax()
