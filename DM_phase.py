@@ -248,7 +248,7 @@ def _Poly_Max(x, y, Err):
         Best    = 0.
         delta_x = 0.
     
-    return np.real(Best), delta_x, p , Fac
+    return float(np.real(Best)), delta_x, p , Fac
   
 def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     """
@@ -284,7 +284,8 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     ax_res.set_ylabel('$\Delta$')
     ax_res.tick_params(axis='both', colors='w', labelbottom='off', labelleft='off', direction='in', left='off', top='on')
     ax_res.yaxis.label.set_color('w')
-    ax_res.set_facecolor('k')
+    try: ax_res.set_facecolor('k')
+    except AttributeError: ax_res.set_axis_bgcolor('k')
     ax_res.ticklabel_format(useOffset=False)
     
     # Power vs DM map      
@@ -352,7 +353,8 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None)
         gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=grid[j], height_ratios=[1, 4], hspace=0)
         ax_prof = fig.add_subplot(gs[0])
         ax_wfall = fig.add_subplot(gs[1], sharex=ax_prof)
-        ax_wfall.set_facecolor('k')
+        try: ax_wfall.set_facecolor('k')
+        except AttributeError: ax_wfall.set_axis_bgcolor('k')
         
         wfall = _dedisperse_waterfall(waterfall, dm, f, dt)
         prof = wfall.sum(axis=0)
