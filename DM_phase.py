@@ -6,17 +6,20 @@ The search uses phase information and thus it is not sensitive to Radio Frequenc
 import os
 import argparse
 import sys
+from itertools import cycle
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.widgets import Cursor, SpanSelector
+from matplotlib.widgets import Cursor, SpanSelector, Button
 import scipy.signal
 from scipy.fftpack import fft, ifft
 
 
 plt.rcParams['toolbar'] = 'None'
 plt.rcParams['keymap.yscale'] = 'Y'
+colormap_list = cycle(['YlOrBr_r', 'viridis', 'Greys'])
+colormap = next(colormap_list)
 
 def _load_psrchive(fname):
     """
@@ -93,7 +96,7 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         ax.axis('off')
     
     # Plot power
-    plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
+    plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap=colormap, interpolation='nearest')
     ax_pow_map.set_ylim([0, Pow_list.shape[0]])
     pow_prof = dPow_list.sum(axis=0)
     plot_pow_prof, = ax_pow_prof.plot(pow_prof, 'w-', linewidth=2, clip_on=False)
@@ -105,7 +108,7 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     bottom_lim = [0,]
     DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
     waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
-    plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
+    plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap=colormap, interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
     plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
@@ -198,6 +201,16 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         fig.canvas.draw()
         return
 
+    def new_cmap(event):
+        colormap = next(colormap_list)
+        plot_wat_map.set_cmap(colormap)
+        plot_pow_map.set_cmap(colormap)
+        fig.canvas.draw()
+        return
+
+    ax_but = plt.axes([0.01, 0.94, 0.12, 0.05])
+    but = Button(ax_but, 'Change colormap', color='0.8', hovercolor='0.2')
+    but.on_clicked(new_cmap)
     span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
     span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
     cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
@@ -291,7 +304,7 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     # Power vs DM map      
     FT_len = DM_Map.shape[0]
     extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / (t_res * 1e6)]
-    ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='nearest')
+    ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap=colormap, extent=extent, interpolation='nearest')
     ax_map.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
     ax_map.xaxis.label.set_color('w')
     ax_map.yaxis.label.set_color('w')
@@ -383,7 +396,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None)
         extent = [0, T, f[0], f[-1]]
         MAX_DS = wfall.max()
         MIN_DS = wfall.mean() - wfall.std()
-        ax_wfall.imshow(im, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='nearest', vmin=MIN_DS, vmax=MAX_DS)
+        ax_wfall.imshow(im, origin='lower', aspect='auto', cmap=colormap, extent=extent, interpolation='nearest', vmin=MIN_DS, vmax=MAX_DS)
 
         ax_wfall.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
         if j == 0: ax_wfall.set_ylabel('Frequency (MHz)')
