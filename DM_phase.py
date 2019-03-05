@@ -563,7 +563,7 @@ def _get_parser():
     parser.add_argument('-DM_s', help="Start DM. If None, it will select the DM from the PSRCHIVE file.", default=None, type=float)
     parser.add_argument('-DM_e', help="End DM. If None, it will select the DM from the PSRCHIVE file.", default=None, type=float)
     parser.add_argument('-DM_step', help="Step DM.", default=0.1, type=float)
-    parser.add_argument('-manual_cutoff', help="Manually set the FFT frequency cutoff.", action='store_true')
+    parser.add_argument('-manual', help="Manually set the FFT frequency cutoff.", action='store_true')
     parser.add_argument('-no_plots', help="Do not produce diagnostic plots.", action='store_true')
     return parser.parse_args()
 
@@ -571,4 +571,4 @@ def _get_parser():
 if __name__ == "__main__":
     args = _get_parser()
     import psrchive
-    DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual_cutoff, no_plots=args.no_plots)
+    DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual, no_plots=args.no_plots)
