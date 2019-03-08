@@ -6,17 +6,20 @@ The search uses phase information and thus it is not sensitive to Radio Frequenc
 import os
 import argparse
 import sys
+from itertools import cycle
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.widgets import Cursor, SpanSelector
+from matplotlib.widgets import Cursor, SpanSelector, Button
 import scipy.signal
 from scipy.fftpack import fft, ifft
 
 
 plt.rcParams['toolbar'] = 'None'
 plt.rcParams['keymap.yscale'] = 'Y'
+colormap_list = cycle(['YlOrBr_r', 'viridis', 'Greys'])
+colormap = next(colormap_list)
 
 def _load_psrchive(fname):
     """
@@ -70,7 +73,7 @@ def _get_f_threshold(Pow_list, MEAN, STD):
 
     s   = np.max(Pow_list, axis=1)
     SN  = (s - MEAN) / STD 
-    Kern = np.round( _get_Window(np.log(np.abs(SN)))).astype(int)
+    Kern = np.round( _get_Window(SN)/2 ).astype(int)
     if Kern < 5: Kern = 5
     return 0, Kern
 
@@ -93,7 +96,7 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         ax.axis('off')
     
     # Plot power
-    plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
+    plot_pow_map = ax_pow_map.imshow(Pow_list, origin='lower', aspect='auto', cmap=colormap, interpolation='nearest')
     ax_pow_map.set_ylim([0, Pow_list.shape[0]])
     pow_prof = dPow_list.sum(axis=0)
     plot_pow_prof, = ax_pow_prof.plot(pow_prof, 'w-', linewidth=2, clip_on=False)
@@ -105,7 +108,7 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     bottom_lim = [0,]
     DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
     waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
-    plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap='YlOrBr_r', interpolation='nearest')
+    plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap=colormap, interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
     plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
@@ -198,6 +201,16 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         fig.canvas.draw()
         return
 
+    def new_cmap(event):
+        colormap = next(colormap_list)
+        plot_wat_map.set_cmap(colormap)
+        plot_pow_map.set_cmap(colormap)
+        fig.canvas.draw()
+        return
+
+    ax_but = plt.axes([0.01, 0.94, 0.12, 0.05])
+    but = Button(ax_but, 'Change colormap', color='0.8', hovercolor='0.2')
+    but.on_clicked(new_cmap)
     span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
     span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
     cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
@@ -222,16 +235,7 @@ def _Poly_Max(x, y, Err):
     """
     Polynomial fit
     """
-    
-    Pows= np.arange(2, y.size - 1, dtype=float)
-    Met = np.zeros_like(Pows)
-    SN  = np.zeros_like(Pows)
-    for i, deg in enumerate(Pows):
-        fit = np.polyfit(x, y, deg)
-        Res = y - np.polyval(fit, x)
-        SN[i] = _get_TP(Res)    
-        Met[i] = np.std(Res)
-    n   = np.where(Met == Met[SN == SN.min()].min())[0][0] + 2
+    n = 2 * (y.size - 2) / 3 + 1
     p = np.polyfit(x, y, n)
     Fac = np.std(y) / Err
     
@@ -248,9 +252,9 @@ def _Poly_Max(x, y, Err):
         Best    = 0.
         delta_x = 0.
     
-    return np.real(Best), delta_x, p , Fac
+    return float(np.real(Best)), delta_x, p , Fac
   
-def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
+def _plot_Power(DM_Map, low_idx, up_idx, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     """
     Diagnostic plot of Coherent Power vs Dispersion Measure
     """
@@ -284,18 +288,20 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     ax_res.set_ylabel('$\Delta$')
     ax_res.tick_params(axis='both', colors='w', labelbottom='off', labelleft='off', direction='in', left='off', top='on')
     ax_res.yaxis.label.set_color('w')
-    ax_res.set_facecolor('k')
+    try: ax_res.set_facecolor('k')
+    except AttributeError: ax_res.set_axis_bgcolor('k')
     ax_res.ticklabel_format(useOffset=False)
     
     # Power vs DM map      
     FT_len = DM_Map.shape[0]
-    extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / (t_res * 1e6)]
-    ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='nearest')
+    indx2Ang = 1. / (2 * FT_len * t_res * 1000)
+    extent = [np.min(X), np.max(X), low_idx * indx2Ang, up_idx * indx2Ang]
+    ax_map.imshow(DM_Map[low_idx : up_idx], origin='lower', aspect='auto', cmap=colormap, extent=extent, interpolation='nearest')
     ax_map.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
     ax_map.xaxis.label.set_color('w')
     ax_map.yaxis.label.set_color('w')
     ax_map.set_xlabel('DM (pc / cc)')
-    ax_map.set_ylabel('w (rad / us)')
+    ax_map.set_ylabel('Fluctuation Frequency (ms$^{-1}$)')  #From p142 in handbook, also see Camilo et al. (1996)
     ax_map.ticklabel_format(useOffset=False)
     try: fig.align_ylabels([ax_map, ax_res])  #Recently added feature
     except AttributeError:
@@ -352,7 +358,8 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None)
         gs = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=grid[j], height_ratios=[1, 4], hspace=0)
         ax_prof = fig.add_subplot(gs[0])
         ax_wfall = fig.add_subplot(gs[1], sharex=ax_prof)
-        ax_wfall.set_facecolor('k')
+        try: ax_wfall.set_facecolor('k')
+        except AttributeError: ax_wfall.set_axis_bgcolor('k')
         
         wfall = _dedisperse_waterfall(waterfall, dm, f, dt)
         prof = wfall.sum(axis=0)
@@ -381,7 +388,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None)
         extent = [0, T, f[0], f[-1]]
         MAX_DS = wfall.max()
         MIN_DS = wfall.mean() - wfall.std()
-        ax_wfall.imshow(im, origin='lower', aspect='auto', cmap='YlOrBr_r', extent=extent, interpolation='nearest', vmin=MIN_DS, vmax=MAX_DS)
+        ax_wfall.imshow(im, origin='lower', aspect='auto', cmap=colormap, extent=extent, interpolation='nearest', vmin=MIN_DS, vmax=MAX_DS)
 
         ax_wfall.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
         if j == 0: ax_wfall.set_ylabel('Frequency (MHz)')
@@ -524,13 +531,13 @@ def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels,
     SN    = (Max - dMean) / dSTD
     
     Peak  = DM_curve.argmax()
-    Range = np.arange(Peak - 2, Peak + 2)
+    Range = np.arange(Peak - 5, Peak + 5)
     y = DM_curve[Range]
     x = DM_list[Range]
     Returns_Poly = _Poly_Max(x, y, dSTD)
     
     if not no_plots:
-        _plot_Power(Pow_list[low_idx : up_idx], DM_list, DM_curve, Range, Returns_Poly, x, y, SN, t_res, fname=fname)
+        _plot_Power(Pow_list, low_idx, up_idx, DM_list, DM_curve, Range, Returns_Poly, x, y, SN, t_res, fname=fname)
         _plot_waterfall(Returns_Poly, waterfall, t_res, f_channels, fact_idx, fname=fname, Win=phase_lim)
     
     DM = Returns_Poly[0]
@@ -548,7 +555,7 @@ def _get_parser():
     parser.add_argument('-DM_s', help="Start DM. If None, it will select the DM from the PSRCHIVE file.", default=None, type=float)
     parser.add_argument('-DM_e', help="End DM. If None, it will select the DM from the PSRCHIVE file.", default=None, type=float)
     parser.add_argument('-DM_step', help="Step DM.", default=0.1, type=float)
-    parser.add_argument('-manual_cutoff', help="Manually set the FFT frequency cutoff.", action='store_true')
+    parser.add_argument('-manual', help="Manually set the FFT frequency cutoff.", action='store_true')
     parser.add_argument('-no_plots', help="Do not produce diagnostic plots.", action='store_true')
     return parser.parse_args()
 
@@ -556,4 +563,4 @@ def _get_parser():
 if __name__ == "__main__":
     args = _get_parser()
     import psrchive
-    DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual_cutoff, no_plots=args.no_plots)
+    DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual, no_plots=args.no_plots)
