@@ -300,7 +300,7 @@ def _plot_Power(DM_Map, low_idx, up_idx, X, Y, Range, Returns_Poly, x, y, SN, t_
     ax_map.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
     ax_map.xaxis.label.set_color('w')
     ax_map.yaxis.label.set_color('w')
-    ax_map.set_xlabel('DM (pc / cc)')
+    ax_map.set_xlabel('DM (pc cm$^{-3}$)')
     ax_map.set_ylabel('Fluctuation Frequency (ms$^{-1}$)')  #From p142 in handbook, also see Camilo et al. (1996)
     ax_map.ticklabel_format(useOffset=False)
     try: fig.align_ylabels([ax_map, ax_res])  #Recently added feature
