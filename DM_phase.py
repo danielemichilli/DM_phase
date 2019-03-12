@@ -149,6 +149,9 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
         waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
         plot_wat_map.set_data(waterfall_dedisp)
+        wat_prof = waterfall_dedisp.sum(axis=0)
+        plot_wat_prof.set_ydata(wat_prof)
+        ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
         instructions.set_text(text.format(DM))
         return 
     
@@ -235,7 +238,7 @@ def _Poly_Max(x, y, Err):
     """
     Polynomial fit
     """
-    n = 2 * (y.size - 2) / 3 + 1
+    n = np.linalg.matrix_rank(np.vander(y))
     p = np.polyfit(x, y, n)
     Fac = np.std(y) / Err
     
