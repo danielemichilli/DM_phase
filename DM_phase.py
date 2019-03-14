@@ -216,7 +216,8 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     but.on_clicked(new_cmap)
     span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
     span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
-    cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
+    try: cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
+    except AttributeError: pass
     key = fig.canvas.mpl_connect('key_press_event', press)
 
     plt.show()
