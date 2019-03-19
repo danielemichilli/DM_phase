@@ -73,7 +73,7 @@ def _get_f_threshold(Pow_list, MEAN, STD):
 
     s   = np.max(Pow_list, axis=1)
     SN  = (s - MEAN) / STD 
-    Kern = np.round( _get_Window(np.log(np.abs(SN)))).astype(int)
+    Kern = np.round( _get_Window(SN)/2 ).astype(int)
     if Kern < 5: Kern = 5
     return 0, Kern
 
@@ -149,6 +149,9 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
         waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
         plot_wat_map.set_data(waterfall_dedisp)
+        wat_prof = waterfall_dedisp.sum(axis=0)
+        plot_wat_prof.set_ydata(wat_prof)
+        ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
         instructions.set_text(text.format(DM))
         return 
     
@@ -213,7 +216,8 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     but.on_clicked(new_cmap)
     span_prof = SpanSelector(ax_wat_prof, onselect_prof, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
     span_map = SpanSelector(ax_wat_map, onselect_map, 'horizontal', rectprops=dict(alpha=0.5, facecolor='g'))
-    cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
+    try: cursor = Cursor(ax_pow_map, color='g', linewidth=2, vertOn=False)
+    except AttributeError: pass
     key = fig.canvas.mpl_connect('key_press_event', press)
 
     plt.show()
@@ -235,16 +239,7 @@ def _Poly_Max(x, y, Err):
     """
     Polynomial fit
     """
-    
-    Pows= np.arange(2, y.size - 1, dtype=float)
-    Met = np.zeros_like(Pows)
-    SN  = np.zeros_like(Pows)
-    for i, deg in enumerate(Pows):
-        fit = np.polyfit(x, y, deg)
-        Res = y - np.polyval(fit, x)
-        SN[i] = _get_TP(Res)    
-        Met[i] = np.std(Res)
-    n   = np.where(Met == Met[SN == SN.min()].min())[0][0] + 2
+    n = np.linalg.matrix_rank(np.vander(y))
     p = np.polyfit(x, y, n)
     Fac = np.std(y) / Err
     
@@ -263,7 +258,7 @@ def _Poly_Max(x, y, Err):
     
     return float(np.real(Best)), delta_x, p , Fac
   
-def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
+def _plot_Power(DM_Map, low_idx, up_idx, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     """
     Diagnostic plot of Coherent Power vs Dispersion Measure
     """
@@ -303,13 +298,14 @@ def _plot_Power(DM_Map, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     
     # Power vs DM map      
     FT_len = DM_Map.shape[0]
-    extent = [np.min(X), np.max(X), 0, 2 * np.pi * FT_len / (t_res * 1e6)]
-    ax_map.imshow(DM_Map, origin='lower', aspect='auto', cmap=colormap, extent=extent, interpolation='nearest')
+    indx2Ang = 1. / (2 * FT_len * t_res * 1000)
+    extent = [np.min(X), np.max(X), low_idx * indx2Ang, up_idx * indx2Ang]
+    ax_map.imshow(DM_Map[low_idx : up_idx], origin='lower', aspect='auto', cmap=colormap, extent=extent, interpolation='nearest')
     ax_map.tick_params(axis='both', colors='w', direction='in', right='on', top='on')
     ax_map.xaxis.label.set_color('w')
     ax_map.yaxis.label.set_color('w')
-    ax_map.set_xlabel('DM (pc / cc)')
-    ax_map.set_ylabel('w (rad / us)')
+    ax_map.set_xlabel('DM (pc cm$^{-3}$)')
+    ax_map.set_ylabel('Fluctuation Frequency (ms$^{-1}$)')  #From p142 in handbook, also see Camilo et al. (1996)
     ax_map.ticklabel_format(useOffset=False)
     try: fig.align_ylabels([ax_map, ax_res])  #Recently added feature
     except AttributeError:
@@ -539,13 +535,13 @@ def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels,
     SN    = (Max - dMean) / dSTD
     
     Peak  = DM_curve.argmax()
-    Range = np.arange(Peak - 2, Peak + 2)
+    Range = np.arange(Peak - 5, Peak + 5)
     y = DM_curve[Range]
     x = DM_list[Range]
     Returns_Poly = _Poly_Max(x, y, dSTD)
     
     if not no_plots:
-        _plot_Power(Pow_list[low_idx : up_idx], DM_list, DM_curve, Range, Returns_Poly, x, y, SN, t_res, fname=fname)
+        _plot_Power(Pow_list, low_idx, up_idx, DM_list, DM_curve, Range, Returns_Poly, x, y, SN, t_res, fname=fname)
         _plot_waterfall(Returns_Poly, waterfall, t_res, f_channels, fact_idx, fname=fname, Win=phase_lim)
     
     DM = Returns_Poly[0]
