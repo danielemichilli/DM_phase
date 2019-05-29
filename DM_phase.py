@@ -219,7 +219,8 @@ def _get_frequency_range_manual(waterfall, f_channels):
     plt.show()
     return bottom_lim[-1] * sub_factor[-1], top_lim[-1] * sub_factor[-1]
 
-def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels, t_res):
+def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list,
+    f_channels, t_res, ref_freq="top"):
     """
     Select power limits with interactive GUI.
     """
@@ -249,7 +250,8 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
     top_lim = [Pow_list.shape[0],]
     bottom_lim = [0,]
     DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
-    waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
+    waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res,
+        ref_freq=ref_freq)
     plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower', aspect='auto', cmap=colormap, interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
     plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
@@ -289,7 +291,8 @@ def _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels,
         plot_pow_prof.set_ydata(pow_prof)
         ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
         DM, _ = _DM_calculation(waterfall, Pow_list, dPow_list, bottom_lim[-1], top_lim[-1], f_channels, t_res, DM_list, no_plots=True)
-        waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
+        waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels,
+            t_res, ref_freq=ref_freq)
         plot_wat_map.set_data(waterfall_dedisp)
         wat_prof = waterfall_dedisp.sum(axis=0)
         plot_wat_prof.set_ydata(wat_prof)
@@ -547,7 +550,7 @@ def _plot_waterfall(Returns_Poly, waterfall, dt, f, Cut_off, fname="", Win=None)
     fig.savefig(fname + "Waterfall_5sig.pdf", facecolor='k', edgecolor='k')
     return
 
-def _dedisperse_waterfall(wfall, DM, freq, dt):
+def _dedisperse_waterfall(wfall, DM, freq, dt, ref_freq="top"):
     """
     Dedisperse a wfall matrix to DM.
     """
@@ -555,18 +558,19 @@ def _dedisperse_waterfall(wfall, DM, freq, dt):
     k_DM = 1. / 2.41e-4
     dedisp = np.zeros_like(wfall)
 
-    #if ref_freq == "top":
-    #    reference_frequency
-    #elif ref_freq == "center":
-    #    center_idx = int(len(ref_freq) / 2.)
-    #    reference_frequency = freq[center_idx]
-    #elif ref_freq == "bottom":
-    #    reference_frequency = freq[-1]
-    #else:
-    #    print "`ref_freq` not recognized, using 'bottom'"
-    #    reference_frequency = freq[-1]
-    center_idx = len(freq) // 2
-    shift = (k_DM * DM * (freq[center_idx]**-2 - freq**-2) / dt).round().astype(int)
+    # pick reference frequency for dedispersion
+    if ref_freq == "top":
+        reference_frequency = freq[0]
+    elif ref_freq == "center":
+        center_idx = len(freq) // 2
+        reference_frequency = freq[center_idx]
+    elif ref_freq == "bottom":
+        reference_frequency = freq[-1]
+    else:
+        print "`ref_freq` not recognized, using 'top'"
+        reference_frequency = freq[0]
+
+    shift = (k_DM * DM * (reference_frequency**-2 - freq**-2) / dt).round().astype(int)
     for i,ts in enumerate(wfall):
         dedisp[i] = np.roll(ts, shift[i])
     return dedisp
@@ -582,7 +586,8 @@ def _init_DM(fname, DM_s, DM_e):
     if DM_e is None: DM_e = DM + 10
     return DM_s, DM_e
 
-def from_PSRCHIVE(fname, DM_s, DM_e, DM_step, manual_cutoff=False, no_plots=False):
+def from_PSRCHIVE(fname, DM_s, DM_e, DM_step, ref_freq="top",
+    manual_cutoff=False, manual_bandwidth=False, no_plots=False):
     """
     Brute-force search of the Dispersion Measure of a single pulse stored into a PSRCHIVE file.
     The algorithm uses phase information and is robust to interference and unusual burst shapes.
@@ -612,14 +617,19 @@ def from_PSRCHIVE(fname, DM_s, DM_e, DM_step, manual_cutoff=False, no_plots=Fals
     basename(fname) + "_DM_Search.pdf": plot
         Map of the coherent power as a function of the search Dispersion Measure.
     """
-
     waterfall, f_channels, t_res = _load_psrchive(fname)
     DM_s, DM_e = _init_DM(fname, DM_s, DM_e)
     DM_list = np.arange(np.float(DM_s), np.float(DM_e), np.float(DM_step))
-    DM, DM_std = get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=manual_cutoff, fname=os.path.basename(fname), no_plots=no_plots)
+    DM, DM_std = get_DM(waterfall, DM_list, t_res, f_channels,
+        ref_freq=ref_freq, manual_cutoff=manual_cutoff,
+        manual_bandwidth=manual_bandwidth, fname=os.path.basename(fname),
+        no_plots=no_plots)
+
     return DM, DM_std
 
-def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnostic_plots=True, fname="", no_plots=False):
+def get_DM(waterfall, DM_list, t_res, f_channels, ref_freq="top",
+    manual_cutoff=False, manual_bandwidth=False, diagnostic_plots=True,
+    fname="", no_plots=False):
     """
     Brute-force search of the Dispersion Measure of a waterfall numpy matrix.
     The algorithm uses phase information and is robust to interference and unusual burst shapes.
@@ -634,8 +644,13 @@ def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnosti
         Time resolution of each phase bin (s).
     f_channels : list
         Central frequency of each channel, from low to high (MHz).
+    ref_freq : str, optional. Default = "top"
+        Use either the "top", "center" or "bottom" of the band as
+        reference frequency for dedispersion.
     manual_cutoff : bool, optional. Default = False
         If False, the power spectrum cutoff is automatically selected.
+    manual_bandwidth : bool, optional. Default = False
+        If False, use the full frequency bandwidth.
     diagnostic_plots : bool, optional. Default = True
         Stores the diagnostic plots "Waterfall_5sig.pdf" and "DM_Search.pdf"
     fname : str, optional. Default = ""
@@ -648,7 +663,7 @@ def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnosti
     DM_std :
         Standard deviation of the Dispersion Measure (pc/cc)
     """
-    if manual_cutoff:
+    if manual_bandwidth:
         low_ch_idx, up_ch_idx = _get_frequency_range_manual(waterfall,
             f_channels)
     else:
@@ -662,7 +677,7 @@ def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnosti
     nbin = waterfall.shape[1] / 2
     Pow_list = np.zeros([nbin, DM_list.size])
     for i, DM in enumerate(DM_list):
-        waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res)
+        waterfall_dedisp = _dedisperse_waterfall(waterfall, DM, f_channels, t_res, ref_freq=ref_freq)
         Pow = _get_Pow(waterfall_dedisp)
         Pow_list[:, i] = Pow[: nbin]
 
@@ -671,7 +686,7 @@ def get_DM(waterfall, DM_list, t_res, f_channels, manual_cutoff=False, diagnosti
 
     Mean     = nchan               # Base on Gamma(2,)
     STD      = nchan / np.sqrt(2)  # Base on Gamma(2,)
-    if manual_cutoff: low_idx, up_idx, phase_lim = _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels, t_res)
+    if manual_cutoff: low_idx, up_idx, phase_lim = _get_f_threshold_manual(Pow_list, dPow_list, waterfall, DM_list, f_channels, t_res, ref_freq=ref_freq)
     else:
         low_idx, up_idx = _get_f_threshold(Pow_list, Mean, STD)
         phase_lim = None
@@ -722,7 +737,9 @@ def _get_parser():
     parser.add_argument('-DM_s', help="Start DM. If None, it will select the DM from the PSRCHIVE file.", default=None, type=float)
     parser.add_argument('-DM_e', help="End DM. If None, it will select the DM from the PSRCHIVE file.", default=None, type=float)
     parser.add_argument('-DM_step', help="Step DM.", default=0.1, type=float)
-    parser.add_argument('-manual', help="Manually set the FFT frequency cutoff.", action='store_true')
+    parser.add_argument('-ref_freq', help="Reference frequency in the bandwidth for dedispersion, one of 'top', 'center' and 'bottom'.", default="top", type=str)
+    parser.add_argument('-manual_cutoff', help="Manually set the FFT frequency cutoff.", action='store_true')
+    parser.add_argument('-manual_bandwidth', help="Manually set the frequency bandwidth to use.", action='store_true')
     parser.add_argument('-no_plots', help="Do not produce diagnostic plots.", action='store_true')
     return parser.parse_args()
 
@@ -730,4 +747,6 @@ def _get_parser():
 if __name__ == "__main__":
     args = _get_parser()
     import psrchive
-    DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step, manual_cutoff=args.manual, no_plots=args.no_plots)
+    DM, DM_std = from_PSRCHIVE(args.fname, args.DM_s, args.DM_e, args.DM_step,
+        ref_freq=args.ref_freq, manual_cutoff=args.manual_cutoff,
+        manual_bandwidth=args.manual_bandwidth, no_plots=args.no_plots)
