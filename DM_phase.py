@@ -560,15 +560,15 @@ def _dedisperse_waterfall(wfall, DM, freq, dt, ref_freq="top"):
 
     # pick reference frequency for dedispersion
     if ref_freq == "top":
-        reference_frequency = freq[0]
+        reference_frequency = freq[-1]
     elif ref_freq == "center":
         center_idx = len(freq) // 2
         reference_frequency = freq[center_idx]
     elif ref_freq == "bottom":
-        reference_frequency = freq[-1]
+        reference_frequency = freq[0]
     else:
         print "`ref_freq` not recognized, using 'top'"
-        reference_frequency = freq[0]
+        reference_frequency = freq[-1]
 
     shift = (k_DM * DM * (reference_frequency**-2 - freq**-2) / dt).round().astype(int)
     for i,ts in enumerate(wfall):
