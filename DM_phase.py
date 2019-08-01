@@ -904,7 +904,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     snr = (max_dm - dmean) / dstd
 
     peak = dm_curve.argmax()
-    plot_range = np.arange(peak - 5, peak + 5)
+    plot_range = np.arange(max(0, peak - 5), min(len(dm_curve), peak + 5))
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
     returns_poly = _poly_max(x, y, dstd)
