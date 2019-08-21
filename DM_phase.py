@@ -33,6 +33,7 @@ def _load_psrchive(fname):
     archive.set_dedispersed(False)
     archive.tscrunch()
     archive.centre()
+    #archive.remove_baseline
     w = archive.get_weights().squeeze()
     waterfall = np.ma.masked_array(archive.get_data().squeeze())
     #waterfall *= w[:, np.newaxis]
@@ -384,15 +385,21 @@ def _Poly_Max(x, y, Err):
     """
     Polynomial fit
     """
-    n = np.linalg.matrix_rank(np.vander(y))
-    p = np.polyfit(x, y, n)
-    Fac = np.std(y) / Err
+    ## AS: matrix_rank was hanging on large arrays
+    if np.shape(x)[0] < 20:
+        n = np.linalg.matrix_rank(np.vander(y))
+    else:
+        n=10
+    ####  
+    Dx= x-x.mean()
+    p = np.polyfit(Dx, y, n)
+    Err = max([ np.std(y-np.polyval(p,Dx)),  Err])
 
     dp      = np.polyder(p)
     ddp     = np.polyder(dp)
     cands   = np.roots(dp)
     r_cands = np.polyval(ddp, cands)
-    first_cut = cands[(cands.imag==0) & (cands.real>=min(x)) & (cands.real<=max(x)) & (r_cands<0)]
+    first_cut = cands[(cands.imag==0) & (cands.real>=min(Dx)) & (cands.real<=max(Dx)) & (r_cands<0)]
     if first_cut.size > 0:
         Value     = np.polyval(p, first_cut)
         Best      = first_cut[Value.argmax()]
@@ -401,7 +408,7 @@ def _Poly_Max(x, y, Err):
         Best    = 0.
         delta_x = 0.
 
-    return float(np.real(Best)), delta_x, p , Fac
+    return return float( np.real(Best) + x.mean() ), delta_x, p, x.mean()
 
 def _plot_Power(DM_Map, low_idx, up_idx, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     """
@@ -422,14 +429,14 @@ def _plot_Power(DM_Map, low_idx, up_idx, X, Y, Range, Returns_Poly, x, y, SN, t_
 
     # Profile
     ax_prof.plot(X, Y, 'w-', linewidth=3, clip_on=False)
-    ax_prof.plot(X[Range], np.polyval(Returns_Poly[2], X[Range]), color='orange', linewidth=3, zorder=2, clip_on=False)
+    ax_prof.plot(X[Range], np.polyval(Returns_Poly[2], X[Range]-Returns_Poly[3]), color='orange', linewidth=3, zorder=2, clip_on=False)
     ax_prof.set_xlim([X.min(), X.max()])
     ax_prof.set_ylim([Y.min(), Y.max()])
     ax_prof.axis('off')
     ax_prof.ticklabel_format(useOffset=False)
 
     # Residuals
-    Res = y - np.polyval(Returns_Poly[2], x)
+    Res = y - np.polyval(Returns_Poly[2], x-Returns_Poly[3])
     Res -= Res.min()
     Res /= Res.max()
     ax_res.plot(x, Res, 'xw', linewidth=2, clip_on=False)
@@ -705,15 +712,15 @@ def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels,
     Max   = DM_curve.max()
     nchan = len(f_channels)
     Mean  = nchan              # Base on Gamma(2,)
-    STD   = Mean / np.sqrt(2)  # Base on Gamma(2,)
+    STD   = nchan / np.sqrt(2) # Base on Gamma(2,)
     m_fact = np.sum(np.arange(low_idx, up_idx)**2)
     s_fact = np.sum(np.arange(low_idx, up_idx)**4)**0.5
     dMean = Mean * m_fact
     dSTD  = STD  * s_fact
     SN    = (Max - dMean) / dSTD
 
-    Peak  = DM_curve.argmax()
-    Range = np.arange(Peak - 5, Peak + 5)
+    Width = _get_Window(DM_curve)/2
+    Range = np.arange(Peak - Width, Peak + Width)
     y = DM_curve[Range]
     x = DM_list[Range]
     Returns_Poly = _Poly_Max(x, y, dSTD)
