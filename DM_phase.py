@@ -158,7 +158,7 @@ def _get_frequency_range_manual(waterfall, f_channels):
         Minimum and maximum emission frequency index to consider.
 
     """
-    fig = plt.figure(figsize=(8., 8.5), facecolor='k')
+    fig = plt.figure(figsize=(8., 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.01, bottom=0.01, right=0.95, top=0.94, hspace=0)
     gs = gridspec.GridSpec(2, 2, hspace=0, height_ratios=[1, 4],
                            width_ratios=[2, 2])
@@ -170,9 +170,9 @@ def _get_frequency_range_manual(waterfall, f_channels):
         ax.axis('off')
 
     ax_wat_map.axis('on')
-    ax_wat_map.spines['left'].set_color('white')
-    ax_wat_map.tick_params(axis='y', colors='white')
-    ax_wat_map.yaxis.label.set_color('white')
+    ax_wat_map.spines['left'].set_color(fg_color)
+    ax_wat_map.tick_params(axis='y', colors=fg_color)
+    ax_wat_map.yaxis.label.set_color(fg_color)
 
     # plot waterfall
     top_lim = [waterfall.shape[0],]
@@ -200,10 +200,10 @@ def _get_frequency_range_manual(waterfall, f_channels):
 
     # plot summed profile
     wat_prof = np.nansum(waterfall, axis=0)
-    plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
+    plot_wat_prof, = ax_wat_prof.plot(wat_prof, fg_color + '-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
     ax_wat_prof.set_xlim([0, wat_prof.size])
-    ax_wat_prof.set_title("Waterfall", fontsize=16, color='w', y=1.08)
+    ax_wat_prof.set_title("Waterfall", fontsize=16, color=fg_color, y=1.08)
 
     # plot instructions
     text = """
@@ -220,7 +220,7 @@ def _get_frequency_range_manual(waterfall, f_channels):
       "q" to save and exit.
 
     """
-    instructions = ax_text.annotate(text, (0, 1), color='w', fontsize=14,
+    instructions = ax_text.annotate(text, (0, 1), color=fg_color, fontsize=14,
                                     horizontalalignment='left',
                                     verticalalignment='top', linespacing=1.5)
 
@@ -340,7 +340,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
 
     """
     # define axes
-    fig = plt.figure(figsize=(12., 8.5), facecolor='k')
+    fig = plt.figure(figsize=(12., 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.01, bottom=0.01, right=0.95, top=0.94, hspace=0)
     gs = gridspec.GridSpec(2, 3, hspace=0, wspace=0.02, height_ratios=[1, 4],
                            width_ratios=[2, 3, 2])
@@ -359,10 +359,11 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
                                      interpolation='nearest')
     ax_pow_map.set_ylim([0, power_spectra.shape[0]])
     pow_prof = dpower_spectra.sum(axis=0)
-    plot_pow_prof, = ax_pow_prof.plot(pow_prof, 'w-', linewidth=2,
+    plot_pow_prof, = ax_pow_prof.plot(pow_prof, fg_color + '-', linewidth=2,
                                       clip_on=False)
     ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
-    ax_pow_prof.set_title('Coherent power', fontsize=16, color='w', y=1.08)
+    ax_pow_prof.set_title('Coherent power', fontsize=16, color=fg_color,
+                          y=1.08)
 
     # plot waterfall
     top_lim = [power_spectra.shape[0],]
@@ -376,10 +377,10 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
                                      aspect='auto', cmap=COLORMAP,
                                      interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
-    plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
+    plot_wat_prof, = ax_wat_prof.plot(wat_prof, fg_color + '-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
     ax_wat_prof.set_xlim([0, wat_prof.size])
-    ax_wat_prof.set_title("Waterfall", fontsize=16, color='w', y=1.08)
+    ax_wat_prof.set_title("Waterfall", fontsize=16, color=fg_color, y=1.08)
 
     # plot instructions
     text = """
@@ -401,7 +402,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
       space bar to reset zoom.
 
     """
-    instructions = ax_text.annotate(text.format(dm), (0, 1), color='w',
+    instructions = ax_text.annotate(text.format(dm), (0, 1), color=fg_color,
                                     fontsize=14, horizontalalignment='left',
                                     verticalalignment='top', linespacing=1.5)
 
@@ -551,9 +552,18 @@ def _poly_max(x, y, err):
 
 
 def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
-                snr, t_res, fname=""):
+                snr, t_res, fname="", blackonwhite=False, fformat=".pdf"):
     """Diagnostic plot of coherent power vs dispersion measure."""
-    fig = plt.figure(figsize=(6, 8.5), facecolor='k')
+    if blackonwhite:
+        bg_color = "w"
+        fg_color = "k"
+    else:
+        bg_color = "k"
+        fg_color = "w"
+    if fformat not in [".pdf", ".png"]:
+        fformat = ".pdf"
+
+    fig = plt.figure(figsize=(6, 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.1, bottom=0.05, right=0.99, top=0.88)
     gs = gridspec.GridSpec(3, 1, hspace=0, height_ratios=[3, 1, 9])
     ax_prof = fig.add_subplot(gs[0])
@@ -562,10 +572,10 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
 
     title = "{0:}\nBest DM = {1:.3f} $\\pm$ {2:.3f}\nS/N = {3:.1f}".format(
         fname, returns_poly[0], returns_poly[1], snr)
-    fig.suptitle(title, color='w', linespacing=1.5)
+    fig.suptitle(title, color=fg_color, linespacing=1.5)
 
     # profile
-    ax_prof.plot(X, Y, 'w-', linewidth=3, clip_on=False)
+    ax_prof.plot(X, Y, fg_color + '-', linewidth=3, clip_on=False)
     ax_prof.plot(X[plot_range], np.polyval(returns_poly[2], X[plot_range]),
                  color='orange', linewidth=3, zorder=2, clip_on=False)
     ax_prof.set_xlim([X.min(), X.max()])
@@ -577,18 +587,18 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     residuals = y - np.polyval(returns_poly[2], x)
     residuals -= residuals.min()
     residuals /= residuals.max()
-    ax_res.plot(x, residuals, 'xw', linewidth=2, clip_on=False)
+    ax_res.plot(x, residuals, 'x' + fg_color, linewidth=2, clip_on=False)
     ax_res.set_ylim([np.min(residuals) - np.std(residuals) / 2,
                      np.max(residuals) + np.std(residuals) / 2])
     ax_res.set_ylabel("$\\Delta$")
-    ax_res.tick_params(axis='both', colors='w', labelbottom='off',
+    ax_res.tick_params(axis='both', colors=fg_color, labelbottom='off',
                        labelleft='off', direction='in', left='off', top='on')
-    ax_res.yaxis.label.set_color('w')
+    ax_res.yaxis.label.set_color(fg_color)
 
     try:
-        ax_res.set_facecolor('k')
+        ax_res.set_facecolor(bg_color)
     except AttributeError:
-        ax_res.set_axis_bgcolor('k')
+        ax_res.set_axis_bgcolor(bg_color)
 
     ax_res.ticklabel_format(useOffset=False)
 
@@ -598,10 +608,10 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     extent = [np.min(X), np.max(X), low_idx * idx2ang, up_idx * idx2ang]
     ax_map.imshow(dm_map[low_idx : up_idx], origin='lower', aspect='auto',
                   cmap=COLORMAP, extent=extent, interpolation='nearest')
-    ax_map.tick_params(axis='both', colors='w', direction='in', right='on',
-                       top='on')
-    ax_map.xaxis.label.set_color('w')
-    ax_map.yaxis.label.set_color('w')
+    ax_map.tick_params(axis='both', colors=fg_color, direction='in',
+                       right='on', top='on')
+    ax_map.xaxis.label.set_color(fg_color)
+    ax_map.yaxis.label.set_color(fg_color)
     ax_map.set_xlabel("DM (pc cm$^{-3}$)")
     # from p. 142 in pulsar handbook, also see Camilo et al. (1996)
     ax_map.set_ylabel("Fluctuation Frequency (ms$^{-1}$)")
@@ -615,7 +625,8 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
 
     if fname != "": fname += "_"
 
-    fig.savefig(fname + "DM_Search.pdf", facecolor='k', edgecolor='k')
+    fig.savefig(fname + "DM_Search" + fformat, facecolor=bg_color,
+                edgecolor=bg_color, bbox_inches="tight")
 
 
 def _get_window(profile):
@@ -649,18 +660,27 @@ def _check_window(profile, window):
 
 
 def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
-                    window=None):
+                    window=None, blackonwhite=False, fformat=".pdf"):
     """Plot the waterfall at the best Dispersion Measure and at close
     values for comparison.
 
     """
-    fig = plt.figure(figsize=(8.5, 6), facecolor='k')
+    if blackonwhite:
+        bg_color = "w"
+        fg_color = "k"
+    else:
+        bg_color = "k"
+        fg_color = "w"
+    if fformat not in [".pdf", ".png"]:
+        fformat = ".pdf"
+
+    fig = plt.figure(figsize=(8.5, 6), facecolor=bg_color)
     fig.subplots_adjust(left=0.08, bottom=0.08, right=0.99, top=0.8)
     grid = gridspec.GridSpec(1, 3, wspace=0.1)
 
     title = "{0:}\nBest DM = {1:.3f} $\\pm$ {2:.3f}".format(
         fname, returns_poly[0], returns_poly[1])
-    plt.suptitle(title, color='w', linespacing=1.5)
+    plt.suptitle(title, color=fg_color, linespacing=1.5)
 
     # DMs +/- 5 sigmas away
     dms = returns_poly[0] + 5 * returns_poly[1] * np.array([-1, 0, 1])
@@ -671,9 +691,9 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
         ax_wfall = fig.add_subplot(gs[1], sharex=ax_prof)
 
         try:
-            ax_wfall.set_facecolor('k')
+            ax_wfall.set_facecolor(bg_color)
         except AttributeError:
-            ax_wfall.set_axis_bgcolor('k')
+            ax_wfall.set_axis_bgcolor(bg_color)
 
         wfall = _dedisperse_waterfall(waterfall, dm, f, dt)
         profile = wfall.sum(axis=0)
@@ -692,9 +712,9 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
         tmax = dt * (window[1] - window[0]) * 1000
         x = np.linspace(0, tmax, window[1] - window[0])
         y = profile[window[0]:window[1]]
-        ax_prof.plot(x, y, 'w', linewidth=0.5, clip_on=False)
+        ax_prof.plot(x, y, fg_color, linewidth=0.5, clip_on=False)
         ax_prof.axis('off')
-        ax_prof.set_title('{0:.3f}'.format(dm), color='w')
+        ax_prof.set_title('{0:.3f}'.format(dm), color=fg_color)
 
         # waterfall
         im = wfall[:, window[0]:window[1]]
@@ -705,7 +725,7 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
                         extent=extent, interpolation='nearest', vmin=vmin,
                         vmax=vmax)
 
-        ax_wfall.tick_params(axis='both', colors='w', direction='in',
+        ax_wfall.tick_params(axis='both', colors=fg_color, direction='in',
                              right='on', top='on')
         if j == 0:
             ax_wfall.set_ylabel('Frequency (MHz)')
@@ -714,13 +734,14 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
         if j > 0:
             ax_wfall.tick_params(axis='both', labelleft='off')
 
-        ax_wfall.yaxis.label.set_color('w')
-        ax_wfall.xaxis.label.set_color('w')
+        ax_wfall.yaxis.label.set_color(fg_color)
+        ax_wfall.xaxis.label.set_color(fg_color)
 
     if fname != "":
         fname += "_"
 
-    fig.savefig(fname + "Waterfall_5sig.pdf", facecolor='k', edgecolor='k')
+    fig.savefig(fname + "Waterfall_5sig" + fformat, facecolor=bg_color,
+                edgecolor=bg_color, bbox_inches="tight")
 
 
 def _dedisperse_waterfall(wfall, dm, freq, dt, ref_freq="top"):
@@ -806,7 +827,7 @@ def from_PSRCHIVE(fname, dm_s, dm_e, dm_step, ref_freq="top",
 
 def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
            manual_cutoff=False, manual_bandwidth=False, fname="",
-           no_plots=False):
+           no_plots=False, blackonwhite=False, fformat=".pdf"):
     """Brute-force search of the Dispersion Measure of a waterfall numpy
     matrix. The algorithm uses phase information and is robust to
     interference and unusual burst shapes.
@@ -878,14 +899,15 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     dm, dm_std = _dm_calculation(waterfall, power_spectra, dpower_spectra,
                                  low_idx, up_idx, f_channels, t_res, dm_list,
                                  no_plots=no_plots, fname=fname,
-                                 phase_lim=phase_lim)
+                                 fformat=fformat, phase_lim=phase_lim,
+                                 blackonwhite=blackonwhite)
 
     return dm, dm_std
 
 
 def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
-                    phase_lim=None):
+                    phase_lim=None, blackonwhite=False, fformat=".pdf"):
     """Calculate the best DM value."""
     dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
 
@@ -911,9 +933,11 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
 
     if not no_plots:
         _plot_power(power_spectra, low_idx, up_idx, dm_list, dm_curve,
-                    plot_range, returns_poly, x, y, snr, t_res, fname=fname)
+                    plot_range, returns_poly, x, y, snr, t_res, fname=fname,
+                    fformat=fformat, blackonwhite=blackonwhite)
         _plot_waterfall(returns_poly, waterfall, t_res, f_channels, fact_idx,
-                        fname=fname, window=phase_lim)
+                        fname=fname, fformat=fformat, window=phase_lim,
+                        blackonwhite=blackonwhite)
 
     dm = returns_poly[0]
     dm_std = returns_poly[1]
