@@ -408,7 +408,7 @@ def _Poly_Max(x, y, Err):
         Best    = 0.
         delta_x = 0.
 
-    return return float( np.real(Best) + x.mean() ), delta_x, p, x.mean()
+    return float( np.real(Best) + x.mean() ), delta_x, p, x.mean()
 
 def _plot_Power(DM_Map, low_idx, up_idx, X, Y, Range, Returns_Poly, x, y, SN, t_res, fname=""):
     """
@@ -718,7 +718,7 @@ def _DM_calculation(waterfall, Pow_list, dPow_list, low_idx, up_idx, f_channels,
     dMean = Mean * m_fact
     dSTD  = STD  * s_fact
     SN    = (Max - dMean) / dSTD
-
+    Peak  = DM_curve.argmax()
     Width = _get_Window(DM_curve)/2
     Range = np.arange(Peak - Width, Peak + Width)
     y = DM_curve[Range]
