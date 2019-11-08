@@ -190,9 +190,9 @@ def _get_frequency_range_manual(waterfall, f_channels):
     ax_wat_map = fig.add_subplot(gs[1, 1], sharex=ax_wat_prof)
 
     for ax in fig.axes:
-        ax.axis(False)
+        ax.axis('off')
 
-    ax_wat_map.axis(True)
+    ax_wat_map.axis('on')
     ax_wat_map.spines['left'].set_color(fg_color)
     ax_wat_map.tick_params(axis='y', colors=fg_color)
     ax_wat_map.yaxis.label.set_color(fg_color)
@@ -363,7 +363,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
 
     """
     # define axes
-    fig = plt.figure(figsize=(12., 8.5), facecolor=bg_color)
+    fig = plt.figure(figsize=(12., 8.5), facecolor='k')
     fig.subplots_adjust(left=0.01, bottom=0.01, right=0.95, top=0.94, hspace=0)
     gs = gridspec.GridSpec(2, 3, hspace=0, wspace=0.02, height_ratios=[1, 4],
                            width_ratios=[2, 3, 2])
@@ -374,7 +374,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     ax_wat_map = fig.add_subplot(gs[1, 2], sharex=ax_wat_prof)
 
     for ax in fig.axes:
-        ax.axis(False)
+        ax.axis('off')
 
     # plot power
     plot_pow_map = ax_pow_map.imshow(power_spectra, origin='lower',
@@ -382,10 +382,10 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
                                      interpolation='nearest')
     ax_pow_map.set_ylim([0, power_spectra.shape[0]])
     pow_prof = dpower_spectra.sum(axis=0)
-    plot_pow_prof, = ax_pow_prof.plot(pow_prof, fg_color + '-', linewidth=2,
+    plot_pow_prof, = ax_pow_prof.plot(pow_prof, 'w-', linewidth=2,
                                       clip_on=False)
     ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
-    ax_pow_prof.set_title('Coherent power', fontsize=16, color=fg_color,
+    ax_pow_prof.set_title('Coherent power', fontsize=16, color='w',
                           y=1.08)
 
     # plot waterfall
@@ -400,10 +400,10 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
                                      aspect='auto', cmap=COLORMAP,
                                      interpolation='nearest')
     wat_prof = waterfall_dedisp.sum(axis=0)
-    plot_wat_prof, = ax_wat_prof.plot(wat_prof, fg_color + '-', linewidth=2)
+    plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
     ax_wat_prof.set_xlim([0, wat_prof.size])
-    ax_wat_prof.set_title("Waterfall", fontsize=16, color=fg_color, y=1.08)
+    ax_wat_prof.set_title("Waterfall", fontsize=16, color='w', y=1.08)
 
     # plot instructions
     text = """
@@ -425,7 +425,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
       space bar to reset zoom.
 
     """
-    instructions = ax_text.annotate(text.format(dm), (0, 1), color=fg_color,
+    instructions = ax_text.annotate(text.format(dm), (0, 1), color='w',
                                     fontsize=14, horizontalalignment='left',
                                     verticalalignment='top', linespacing=1.5)
 
@@ -925,7 +925,7 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
             t_res, 
             ref_freq=ref_freq
         )
-
+        dm_curve = None
     else: 
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
@@ -1031,8 +1031,13 @@ def _get_parser():
 if __name__ == "__main__":
     args = _get_parser()
     import psrchive
-    dm, dm_std = from_PSRCHIVE(args.fname, args.dm_s, args.dm_e, args.dm_step,
-                               ref_freq=args.ref_freq,
-                               manual_cutoff=args.manual_cutoff,
-                               manual_bandwidth=args.manual_bandwidth,
-                               no_plots=args.no_plots)
+    dm, dm_std = from_PSRCHIVE(
+        args.fname, 
+        args.DM_s, 
+        args.DM_e, 
+        args.DM_step,
+        ref_freq = args.ref_freq,
+        manual_cutoff = args.manual_cutoff,
+        manual_bandwidth = args.manual_bandwidth,
+        no_plots=args.no_plots
+    )
