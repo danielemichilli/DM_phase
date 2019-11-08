@@ -142,6 +142,29 @@ def _get_f_threshold(power_spectra, mean, std):
     return 0, kern
 
 
+def _get_dm_curve(power_spectra, dpower_spectra):
+    """Get the integrated fluctuation frequency for each spectrum.
+    The cutoff for each spectrum is calculated by minimizing the variance of the noise."""
+
+    n = power_spectra.shape[0]
+    m = power_spectra.shape[1]
+    X, Y = np.meshgrid(np.arange(m), np.arange(n))
+    NumEl = (n - Y).astype(float)
+    S = np.divide(
+        np.sum(power_spectra, axis=0).T - np.cumsum(power_spectra, axis=0), 
+        NumEl
+    )
+    S2 = np.divide(
+        np.sum(power_spectra**2, axis=0).T - np.cumsum(power_spectra**2, axis=0), 
+        NumEl
+    )
+    var = np.divide( (S2 - S**2), NumEl)
+    I = np.ones([n, 1]) * np.argmin(var[:-10, :], axis=0)
+    Lo = np.multiply(Y < I, dpower_spectra)
+    dm_curve = Lo.sum(axis=0)
+    return dm_curve
+
+
 def _get_frequency_range_manual(waterfall, f_channels):
     """Select frequency range to use with GUI.
 
@@ -874,8 +897,13 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     power_spectra = np.zeros([nbin, dm_list.size])
 
     for i, dm in enumerate(dm_list):
-        waterfall_dedisp = _dedisperse_waterfall(waterfall, dm, f_channels,
-                                                 t_res, ref_freq=ref_freq)
+        waterfall_dedisp = _dedisperse_waterfall(
+            waterfall, 
+            dm, 
+            f_channels,
+            t_res, 
+            ref_freq=ref_freq
+        )
         power_spectrum = _get_coherent_power_spectrum(waterfall_dedisp)
         power_spectra[:, i] = power_spectrum[: nbin]
 
@@ -889,26 +917,46 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
 
     if manual_cutoff:
         low_idx, up_idx, phase_lim = _get_f_threshold_manual(
-            power_spectra, dpower_spectra, waterfall, dm_list, f_channels,
-            t_res, ref_freq=ref_freq)
-    else:
+            power_spectra, 
+            dpower_spectra, 
+            waterfall, 
+            dm_list, 
+            f_channels,
+            t_res, 
+            ref_freq=ref_freq
+        )
+
+    else: 
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
+        dm_curve = _get_dm_curve(power_spectra, dpower_spectra)
 
-    dm, dm_std = _dm_calculation(waterfall, power_spectra, dpower_spectra,
-                                 low_idx, up_idx, f_channels, t_res, dm_list,
-                                 no_plots=no_plots, fname=fname,
-                                 fformat=fformat, phase_lim=phase_lim,
-                                 blackonwhite=blackonwhite)
-
+    dm, dm_std = _dm_calculation(
+        waterfall, 
+        power_spectra, 
+        dpower_spectra,
+        low_idx, 
+        up_idx, 
+        f_channels, 
+        t_res, 
+        dm_list,
+        no_plots = no_plots, 
+        fname = fname,
+        fformat = fformat, 
+        phase_lim = phase_lim,
+        blackonwhite = blackonwhite,
+        dm_curve = dm_curve
+    )
     return dm, dm_std
 
 
 def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
-                    phase_lim=None, blackonwhite=False, fformat=".pdf"):
+                    phase_lim=None, blackonwhite=False, fformat=".pdf", dm_curve=None):
     """Calculate the best DM value."""
-    dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
+    
+    if dm_curve is None:
+        dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
 
     fact_idx = up_idx - low_idx
     max_dm = dm_curve.max()
@@ -925,7 +973,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     snr = (max_dm - dmean) / dstd
 
     peak = dm_curve.argmax()
-    width = _get_window(dm_curve)/2
+    width = _get_window(dm_curve) / 2
     plot_range = np.arange(peak - width, peak + width)
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
