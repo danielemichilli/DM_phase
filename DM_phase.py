@@ -167,9 +167,9 @@ def _get_frequency_range_manual(waterfall, f_channels):
     ax_wat_map = fig.add_subplot(gs[1, 1], sharex=ax_wat_prof)
 
     for ax in fig.axes:
-        ax.axis('off')
+        ax.axis(False)
 
-    ax_wat_map.axis('on')
+    ax_wat_map.axis(True)
     ax_wat_map.spines['left'].set_color(fg_color)
     ax_wat_map.tick_params(axis='y', colors=fg_color)
     ax_wat_map.yaxis.label.set_color(fg_color)
@@ -351,7 +351,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     ax_wat_map = fig.add_subplot(gs[1, 2], sharex=ax_wat_prof)
 
     for ax in fig.axes:
-        ax.axis('off')
+        ax.axis(False)
 
     # plot power
     plot_pow_map = ax_pow_map.imshow(power_spectra, origin='lower',
@@ -526,15 +526,15 @@ def _poly_max(x, y, err):
     else:
         n=10
     ####  
-    Dx= x-x.mean()
-    p = np.polyfit(Dx, y, n)
-    Err = max([ np.std(y-np.polyval(p,Dx)),  Err])
+    dx = x - x.mean()
+    p = np.polyfit(dx, y, n)
+    err = max([ np.std(y-np.polyval(p, dx)),  err])
 
     dp = np.polyder(p)
     ddp = np.polyder(dp)
     cands = np.roots(dp)
     r_cands = np.polyval(ddp, cands)
-    first_cut = cands[(cands.imag==0) & (cands.real>=min(Dx)) & (cands.real<=max(Dx)) & (r_cands<0)]
+    first_cut = cands[(cands.imag==0) & (cands.real>=min(dx)) & (cands.real<=max(dx)) & (r_cands<0)]
     if first_cut.size > 0:
         value = np.polyval(p, first_cut)
         best = first_cut[value.argmax()]
@@ -543,7 +543,7 @@ def _poly_max(x, y, err):
         best = 0.
         delta_x = 0.
 
-    return float( np.real(Best) + x.mean() ), delta_x, p, x.mean()
+    return float( np.real(best) + x.mean() ), delta_x, p, x.mean()
 
 
 def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
@@ -570,7 +570,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     fig.suptitle(title, color=fg_color, linespacing=1.5)
 
     # Profile
-    ax_prof.plot(X[Range], np.polyval(Returns_Poly[2], X[Range]-Returns_Poly[3]), color='orange', linewidth=3, zorder=2, clip_on=False)
+    ax_prof.plot(X[plot_range], np.polyval(returns_poly[2], X[plot_range]-returns_poly[3]), color='orange', linewidth=3, zorder=2, clip_on=False)
     ax_prof.plot(
         X[plot_range], 
         np.polyval(returns_poly[2], X[plot_range]),
@@ -592,8 +592,8 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     ax_res.set_ylim([np.min(residuals) - np.std(residuals) / 2,
                      np.max(residuals) + np.std(residuals) / 2])
     ax_res.set_ylabel("$\\Delta$")
-    ax_res.tick_params(axis='both', colors=fg_color, labelbottom='off',
-                       labelleft='off', direction='in', left='off', top='on')
+    ax_res.tick_params(axis='both', colors=fg_color, labelbottom=False,
+                       labelleft=False, direction='in', left=False, top=True)
     ax_res.yaxis.label.set_color(fg_color)
     try:
         ax_res.set_facecolor(bg_color)
@@ -608,7 +608,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     ax_map.imshow(dm_map[low_idx : up_idx], origin='lower', aspect='auto',
                   cmap=COLORMAP, extent=extent, interpolation='nearest')
     ax_map.tick_params(axis='both', colors=fg_color, direction='in',
-                       right='on', top='on')
+                       right=True, top=True)
     ax_map.xaxis.label.set_color(fg_color)
     ax_map.yaxis.label.set_color(fg_color)
     ax_map.set_xlabel("DM (pc cm$^{-3}$)")
@@ -725,13 +725,13 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
                         vmax=vmax)
 
         ax_wfall.tick_params(axis='both', colors=fg_color, direction='in',
-                             right='on', top='on')
+                             right=True, top=True)
         if j == 0:
             ax_wfall.set_ylabel('Frequency (MHz)')
         if j == 1:
             ax_wfall.set_xlabel('Time (ms)')
         if j > 0:
-            ax_wfall.tick_params(axis='both', labelleft='off')
+            ax_wfall.tick_params(axis='both', labelleft=False)
 
         ax_wfall.yaxis.label.set_color(fg_color)
         ax_wfall.xaxis.label.set_color(fg_color)
@@ -925,7 +925,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     snr = (max_dm - dmean) / dstd
 
     peak = dm_curve.argmax()
-    width = _get_window(DM_curve)/2
+    width = _get_window(dm_curve)/2
     plot_range = np.arange(peak - width, peak + width)
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
