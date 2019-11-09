@@ -593,7 +593,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     fig.suptitle(title, color=fg_color, linespacing=1.5)
 
     # Profile
-    ax_prof.plot(X[plot_range], np.polyval(returns_poly[2], X[plot_range]-returns_poly[3]), color='orange', linewidth=3, zorder=2, clip_on=False)
+    ax_prof.plot(X, Y, fg_color+'-', linewidth=3, clip_on=False)
     ax_prof.plot(
         X[plot_range], 
         np.polyval(returns_poly[2], X[plot_range]),
@@ -640,7 +640,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     ax_map.ticklabel_format(useOffset=False)
 
     try:
-        fig.align_ylabels([ax_map, ax_res])  # recently added feature
+        fig.align_ylabels([ax_map, ax_res])
     except AttributeError:
         ax_map.yaxis.set_label_coords(-0.07, 0.5)
         ax_res.yaxis.set_label_coords(-0.07, 0.5)
