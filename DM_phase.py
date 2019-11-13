@@ -149,17 +149,20 @@ def _get_dm_curve(power_spectra, dpower_spectra):
     n = power_spectra.shape[0]
     m = power_spectra.shape[1]
     X, Y = np.meshgrid(np.arange(m), np.arange(n))
-    NumEl = (n - Y).astype(float)
+    num_el = (n - Y).astype(float)
     S = np.divide(
         np.sum(power_spectra, axis=0).T - np.cumsum(power_spectra, axis=0), 
-        NumEl
+        num_el
     )
     S2 = np.divide(
         np.sum(power_spectra**2, axis=0).T - np.cumsum(power_spectra**2, axis=0), 
-        NumEl
+        num_el
     )
-    var = np.divide( (S2 - S**2), NumEl)
-    I = np.ones([n, 1]) * np.argmin(var[:-10, :], axis=0)
+    var = np.divide( (S2 - S**2), num_el)
+    var_sm = scipy.signal.convolve2d(var, np.ones([3, 3]) / 9, mode='same', boundary='wrap')
+    idx_f = np.argmin(var_sm[:-10, :], axis=0)
+    idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same')
+    I = np.ones([n, 1]) * idx_c
     Lo = np.multiply(Y < I, dpower_spectra)
     dm_curve = Lo.sum(axis=0)
     return dm_curve
@@ -548,7 +551,7 @@ def _poly_max(x, y, err):
         n = np.linalg.matrix_rank(np.vander(y))
     else:
         n=10
-    ####  
+     
     dx = x - x.mean()
     p = np.polyfit(dx, y, n)
     err = max([ np.std(y-np.polyval(p, dx)),  err])
@@ -588,7 +591,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     ax_res = fig.add_subplot(gs[1], sharex=ax_prof)
     ax_map = fig.add_subplot(gs[2], sharex=ax_prof)
 
-    title = "{0:}\nBest DM = {1:.3f} $\\pm$ {2:.3f}\nS/N = {3:.1f}".format(
+    title = "{0:}\nBest DM = {1:.3f} $\pm$ {2:.3f}\nS/N = {3:.1f}".format(
         fname, returns_poly[0], returns_poly[1], snr)
     fig.suptitle(title, color=fg_color, linespacing=1.5)
 
