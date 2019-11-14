@@ -599,7 +599,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     ax_prof.plot(X, Y, fg_color+'-', linewidth=3, clip_on=False)
     ax_prof.plot(
         X[plot_range], 
-        np.polyval(returns_poly[2], X[plot_range]),
+        np.polyval(returns_poly[2], X[plot_range] - returns_poly[3]),
         color='orange', 
         linewidth=3, 
         zorder=2, 
@@ -981,6 +981,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
     returns_poly = _poly_max(x, y, dstd)
+    print returns_poly
 
     if not no_plots:
         _plot_power(power_spectra, low_idx, up_idx, dm_list, dm_curve,
