@@ -163,7 +163,7 @@ def _get_dm_curve(power_spectra, dpower_spectra):
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
     idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same')
     I = np.ones([n, 1]) * idx_c
-    Lo = np.multiply(Y < I, dpower_spectra)
+    Lo = np.multiply(Y <= I, dpower_spectra)
     dm_curve = Lo.sum(axis=0)
     return dm_curve
 
