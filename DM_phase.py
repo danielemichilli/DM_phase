@@ -393,7 +393,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
 
     # plot waterfall
     top_lim = [power_spectra.shape[0],]
-    bottom_lim = [0,]
+    bottom_lim = [1,]
     dm, _ = _dm_calculation(waterfall, power_spectra, dpower_spectra,
                             bottom_lim[-1], top_lim[-1], f_channels, t_res,
                             dm_list, no_plots=True)
