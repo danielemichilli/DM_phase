@@ -163,9 +163,15 @@ def _get_dm_curve(power_spectra, dpower_spectra):
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
     idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same')
     I = np.ones([n, 1]) * idx_c
+    I2_sum = np.multiply(np.multiply(I,I+1),2*I+1)/6
+    
     Lo = np.multiply(Y <= I, dpower_spectra)
+    AV_N_pow = mp.sum(np.multiply(Y == I, S),axis=0)
+    
     dm_curve = Lo.sum(axis=0)
-    return dm_curve
+    Noise_curve = np.multiply(AV_N_pow,I2_sum)
+    SN = np.pi*np.divide(dm_curve-Noise_curve,np.multiply(AV_N_pow,I))/n
+    return 
 
 
 def _get_frequency_range_manual(waterfall, f_channels):
