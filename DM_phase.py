@@ -161,7 +161,7 @@ def _get_dm_curve(power_spectra, dpower_spectra):
     var = np.divide( (S2 - S**2), num_el)
     var_sm = scipy.signal.convolve2d(var, np.ones([3, 3]) / 9, mode='same', boundary='wrap')
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
-    idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same')
+    idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same').astype(int)
     idx_c[idx_c==0]=1 
     I = np.ones([n, 1]) * idx_c
     I2_sum = np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1)/6
@@ -170,8 +170,8 @@ def _get_dm_curve(power_spectra, dpower_spectra):
     AV_N_pow = np.sum(np.multiply(Y == I.astype(int), S),axis=0)
     
     dm_curve = Lo.sum(axis=0)
-    Noise_curve = np.multiply(AV_N_pow,I2_sum)
-    Dem = np.multiply(AV_N_pow,idx_c)
+    Noise_curve = np.multiply( AV_N_pow, I2_sum )
+    Dem = np.multiply( AV_N_pow, idx_c.astype(int) )
     SN = ( (np.pi**2) / n ) * np.divide( (dm_curve-Noise_curve), Dem )
     SN[np.isnan(SN)]=0
     return SN
@@ -989,6 +989,10 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     plot_range = np.arange(peak - width, peak + width)
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
+
+    dstd = 1       #Overwrite terms to get correct values from _get_dm_curve
+    snr = max_dm
+
     returns_poly = _poly_max(x, y, dstd)
     print returns_poly
 
