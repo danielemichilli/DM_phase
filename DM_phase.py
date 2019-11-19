@@ -142,7 +142,7 @@ def _get_f_threshold(power_spectra, mean, std):
     return 0, kern
 
 
-def _get_dm_curve(power_spectra, dpower_spectra):
+def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     """Get the integrated fluctuation frequency for each spectrum.
     The cutoff for each spectrum is calculated by minimizing the variance of the noise."""
 
@@ -168,7 +168,7 @@ def _get_dm_curve(power_spectra, dpower_spectra):
     
     Lo = np.multiply(Y <= I, dpower_spectra)
     AV_N_pow = np.sum(np.multiply(Y == I.astype(int), S),axis=0)
-    
+    AV_N_pow = nchan*np.ones( np.shape(idx_c))
     dm_curve = Lo.sum(axis=0)
     Noise_curve = np.multiply( AV_N_pow, I2_sum )
     Dem = np.multiply( AV_N_pow, idx_c.astype(int) )
@@ -584,6 +584,8 @@ def _poly_max(x, y, err):
 def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
                 snr, t_res, fname="", blackonwhite=False, fformat=".pdf"):
     """Diagnostic plot of coherent power vs dispersion measure."""
+    if low_idx==0:
+        low_idx=1
     if blackonwhite:
         bg_color = "w"
         fg_color = "k"
@@ -592,7 +594,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
         fg_color = "w"
     if fformat not in [".pdf", ".png"]:
         fformat = ".pdf"
-
+    
     fig = plt.figure(figsize=(6, 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.1, bottom=0.05, right=0.99, top=0.88)
     gs = gridspec.GridSpec(3, 1, hspace=0, height_ratios=[3, 1, 9])
@@ -941,7 +943,8 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     else: 
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
-        dm_curve = _get_dm_curve(power_spectra, dpower_spectra)
+        dm_curve = _get_dm_curve(power_spectra, dpower_spectra, nchan)
+
 
     dm, dm_std = _dm_calculation(
         waterfall, 
@@ -986,7 +989,9 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
 
     peak = dm_curve.argmax()
     width = _get_window(dm_curve) / 2
-    plot_range = np.arange(peak - width, peak + width)
+    Start,Stop = _check_window(dm_curve, width)    
+    #plot_range = np.arange(peak - width, peak + width)
+    plot_range = np.arange(Start,Stop)
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
@@ -994,7 +999,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     snr = max_dm
 
     returns_poly = _poly_max(x, y, dstd)
-    print returns_poly
+    #print returns_poly
 
     if not no_plots:
         _plot_power(power_spectra, low_idx, up_idx, dm_list, dm_curve,
