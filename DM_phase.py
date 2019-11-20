@@ -736,13 +736,15 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
 
         # find the time range around the pulse
         if (j == 0) and (window is None):
-            window = _get_window(profile)
-            coherence_spectrum = _get_coherence_spectrum(wfall)
-            spectrum_filter = np.ones_like(coherence_spectrum)
-            spectrum_filter[cutoff:-cutoff] = 0
-            spike = np.real(ifft(coherence_spectrum * spectrum_filter))
-            spike[0] = 0
-            window = _check_window(spike, window)
+          wfall1 = _dedisperse_waterfall(waterfall, dms[1], f, dt)
+          window = np.max([ _get_window(profile), np.shape(profile)[0]/cutoff ])
+          coherence_spectrum = _get_coherence_spectrum(wfall1)
+          spectrum_filter = np.ones_like(coherence_spectrum)
+          spectrum_filter[cutoff:-cutoff] = 0
+          spike = np.real(ifft(np.multiply(coherence_spectrum, spectrum_filter)))
+          spike[0] = 0
+          spike[-1] = 0
+          window = _check_window(spike, window)
 
         # profile
         tmax = dt * (window[1] - window[0]) * 1000
