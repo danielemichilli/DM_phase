@@ -746,17 +746,19 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
 
         # find the time range around the pulse
         if (j == 0) and (window is None):
-          wfall1 = _dedisperse_waterfall(waterfall, dms[1], f, dt)
-          window = np.max([ _get_window(profile), np.shape(profile)[0]/cutoff ])
-          coherence_spectrum = _get_coherence_spectrum(wfall1)
-          spectrum_filter = np.ones_like(coherence_spectrum)
-          spectrum_filter[cutoff:-cutoff] = 0
-          spike = np.real(ifft(np.multiply(coherence_spectrum, spectrum_filter)))
-          spike[0] = 0
-          spike[-1] = 0
-          window = _check_window(spike, window)
+          #wfall1 = _dedisperse_waterfall(waterfall, dms[1], f, dt)
+          width = np.max([ _get_window(profile), np.shape(profile)[0]/cutoff ])
+          #coherence_spectrum = _get_coherence_spectrum(wfall1)
+          #spectrum_filter = np.ones_like(coherence_spectrum)
+          #spectrum_filter[cutoff:-cutoff] = 0
+          #spike = np.real(ifft(np.multiply(fft(profile),np.multiply(coherence_spectrum, spectrum_filter))))
+          #spike[0] = 0
+          #spike[-1] = 0
+ 
+        kern_l = np.shape(profile)[0]/cutoff
+        spike  = np.convolve( profile, np.ones(kern_l), mode='same')
+        window = _check_window(spike, 2 * width)
 
-        # profile
         tmax = dt * (window[1] - window[0]) * 1000
         x = np.linspace(0, tmax, window[1] - window[0])
         y = profile[window[0]:window[1]]
@@ -1010,7 +1012,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
-    dstd = 2**0.5       #Overwrite terms to get correct values from _get_dm_curve
+    dstd = 2**0.5       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
     snr = max_dm
     
     if weight is None:
