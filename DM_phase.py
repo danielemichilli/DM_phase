@@ -179,9 +179,9 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     #Dem = nchan/3/n *idx_c**3
     Dem  = ( nchan**2*I4_sum/2.0 + 1.0*dn_term )**0.5
     SN =  np.divide( (dm_curve-1.0*Noise_curve), Dem )
-    SN_Er = ( 1 + nchan**2 * (I4_sum/2.0 + 1.0*I2_sum) / Dem**2)**0.5
+    SN_Err = ( 1 + nchan**2 * (I4_sum/2.0 + 1.0*I2_sum) / Dem**2)**0.5
     SN[np.isnan(SN)]=0
-    return SN
+    return SN,SN_Err
 
 
 def _get_frequency_range_manual(waterfall, f_channels):
@@ -558,7 +558,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     return bottom_lim[-1], top_lim[-1], xlim
 
 
-def _poly_max(x, y, err):
+def _poly_max(x, y, err,w='None'):
     """
     Polynomial fit
     """
@@ -569,9 +569,12 @@ def _poly_max(x, y, err):
         n=10
      
     dx = x - x.mean()
-    p = np.polyfit(dx, y, n)
-    err = max([ np.std(y-np.polyval(p, dx)),  err])
-
+    if w is None:
+      p = np.polyfit(dx, y, n)
+      err = max([ np.std(y-np.polyval(p, dx)),  err])
+    else:
+      p = np.polyfit(dx,y,n,w = w)
+      err = max([ np.sum( w * (y-np.polyval(p, dx))**2.0)**0.5,  err])
     dp = np.polyder(p)
     ddp = np.polyder(dp)
     cands = np.roots(dp)
@@ -949,10 +952,12 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
             ref_freq=ref_freq
         )
         dm_curve = None
+        w = None
     else: 
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
-        dm_curve = _get_dm_curve(power_spectra, dpower_spectra, nchan)
+        dm_curve , SN_Err = _get_dm_curve(power_spectra, dpower_spectra, nchan)
+        w = (1.0/SN_Err)/np.sum(1.0/SN_Err)
 
 
     dm, dm_std = _dm_calculation(
@@ -969,14 +974,15 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         fformat = fformat, 
         phase_lim = phase_lim,
         blackonwhite = blackonwhite,
-        dm_curve = dm_curve
+        dm_curve = dm_curve,
+        weight   = w
     )
     return dm, dm_std
 
 
 def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
-                    phase_lim=None, blackonwhite=False, fformat=".pdf", dm_curve=None):
+                    phase_lim=None, blackonwhite=False, fformat=".pdf", dm_curve=None,weight=None):
     """Calculate the best DM value."""
     
     if dm_curve is None:
@@ -1004,10 +1010,14 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
-    dstd = 1       #Overwrite terms to get correct values from _get_dm_curve
+    dstd = 2**0.5       #Overwrite terms to get correct values from _get_dm_curve
     snr = max_dm
-
-    returns_poly = _poly_max(x, y, dstd)
+    
+    if weight is None:
+      returns_poly = _poly_max(x, y, dstd)
+    else: 
+      New_W = weight[plot_range]/np.sum(weight[plot_range])
+      returns_poly = _poly_max(x, y, dstd, w = New_W)
     #print returns_poly
 
     if not no_plots:
