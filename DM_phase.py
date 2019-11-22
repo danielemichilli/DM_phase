@@ -159,18 +159,17 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
         num_el
     )
     var = np.divide( (S2 - S**2), num_el)
-    var_sm = scipy.signal.convolve2d(var, np.ones([3, 3]) / 9, mode='same', boundary='wrap')
+    var_sm = scipy.signal.convolve2d(var, np.ones([9, 3]) /27 , mode='same', boundary='wrap')
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
     idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same').astype(int)
-    idx_c[idx_c==0]=1 
+    idx_c[idx_c==0] = 1 
     I = np.ones([n, 1]) * idx_c
     I2_sum = np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1)/6
     I4_sum = np.multiply(np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1),3*idx_c+3*idx_c-1)/30
 
     Lo = np.multiply(Y <= I, dpower_spectra)
     Lo1= np.multiply(Y <= I, np.multiply(power_spectra,dpower_spectra))
-    AV_N_pow = np.sum(np.multiply(Y == I.astype(int), S),axis=0)
-    AV_N_pow = nchan*np.ones( np.shape(idx_c))
+    AV_N_pow = nchan*np.ones( np.shape(idx_c) )
     dm_curve = Lo.sum(axis=0)
     dn_term  = Lo1.sum(axis=0)
     Noise_curve = np.multiply( AV_N_pow, I2_sum )
@@ -178,7 +177,7 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     #Dem = ( nchan * idx_c * n  / np.pi**2)
     #Dem = nchan/3/n *idx_c**3
     Dem  = ( nchan**2*I4_sum/2.0 + 1.0*dn_term )**0.5
-    SN =  np.divide( (dm_curve-1.0*Noise_curve), Dem )
+    SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), Dem )
     SN_Err = ( 1 + nchan**2 * (I4_sum/2.0 + 1.0*I2_sum) / Dem**2)**0.5
     SN[np.isnan(SN)]=0
     return SN,SN_Err
@@ -224,7 +223,7 @@ def _get_frequency_range_manual(waterfall, f_channels):
     right = waterfall.shape[1]
 
     plot_wat_map = ax_wat_map.imshow(waterfall, origin='lower', aspect='auto',
-                                     cmap=COLORMAP, interpolation='nearest',
+                                     cmap=COLORMAP, interpolation='none',
                                      extent=(left, right, bottom_lim[-1] - 0.5,
                                              top_lim[-1] + 0.5))
 
@@ -398,7 +397,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     # plot power
     plot_pow_map = ax_pow_map.imshow(power_spectra, origin='lower',
                                      aspect='auto', cmap=COLORMAP,
-                                     interpolation='nearest')
+                                     interpolation='none')
     ax_pow_map.set_ylim([0, power_spectra.shape[0]])
     pow_prof = dpower_spectra.sum(axis=0)
     plot_pow_prof, = ax_pow_prof.plot(pow_prof, 'w-', linewidth=2,
@@ -417,7 +416,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
                                              ref_freq=ref_freq)
     plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower',
                                      aspect='auto', cmap=COLORMAP,
-                                     interpolation='nearest')
+                                     interpolation='none')
     wat_prof = waterfall_dedisp.sum(axis=0)
     plot_wat_prof, = ax_wat_prof.plot(wat_prof, 'w-', linewidth=2)
     ax_wat_prof.set_ylim([wat_prof.min(), wat_prof.max()])
@@ -653,7 +652,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     idx2ang = 1. / (2 * ft_len * t_res * 1000)
     extent = [np.min(X), np.max(X), low_idx * idx2ang, up_idx * idx2ang]
     ax_map.imshow(dm_map[low_idx : up_idx], origin='lower', aspect='auto',
-                  cmap=COLORMAP, extent=extent, interpolation='nearest')
+                  cmap=COLORMAP, extent=extent, interpolation='none')
     ax_map.tick_params(axis='both', colors=fg_color, direction='in',
                        right=True, top=True)
     ax_map.xaxis.label.set_color(fg_color)
@@ -772,7 +771,7 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
         vmin = wfall.mean() - wfall.std()
         vmax = wfall.max()
         ax_wfall.imshow(im, origin='lower', aspect='auto', cmap=COLORMAP,
-                        extent=extent, interpolation='nearest', vmin=vmin,
+                        extent=extent, interpolation='none', vmin=vmin,
                         vmax=vmax)
 
         ax_wfall.tick_params(axis='both', colors=fg_color, direction='in',
@@ -1012,7 +1011,7 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
-    dstd = 2**0.5       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
+    dstd = 1       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
     snr = max_dm
     
     if weight is None:
