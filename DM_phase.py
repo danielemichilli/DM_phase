@@ -165,14 +165,21 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     idx_c[idx_c==0]=1 
     I = np.ones([n, 1]) * idx_c
     I2_sum = np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1)/6
-    
+    I4_sum = np.multiply(np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1),3*idx_c+3*idx_c-1)/30
+
     Lo = np.multiply(Y <= I, dpower_spectra)
+    Lo1= np.multiply(Y <= I, np.multiply(power_spectra,dpower_spectra))
     AV_N_pow = np.sum(np.multiply(Y == I.astype(int), S),axis=0)
     AV_N_pow = nchan*np.ones( np.shape(idx_c))
     dm_curve = Lo.sum(axis=0)
+    dn_term  = Lo1.sum(axis=0)
     Noise_curve = np.multiply( AV_N_pow, I2_sum )
-    Dem = np.multiply( AV_N_pow, idx_c.astype(int) )
-    SN = ( (np.pi**2) / n ) * np.divide( (dm_curve-Noise_curve), Dem )
+    #Dem = (Noise_curve/n/2 )
+    #Dem = ( nchan * idx_c * n  / np.pi**2)
+    #Dem = nchan/3/n *idx_c**3
+    Dem  = ( nchan**2*I4_sum/2.0 + 1.0*dn_term )**0.5
+    SN =  np.divide( (dm_curve-1.0*Noise_curve), Dem )
+    SN_Er = ( 1 + nchan**2 * (I4_sum/2.0 + 1.0*I2_sum) / Dem**2)**0.5
     SN[np.isnan(SN)]=0
     return SN
 
