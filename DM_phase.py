@@ -565,7 +565,7 @@ def _poly_max(x, y, err,w='None'):
     if np.shape(x)[0] < 20:
         n = np.linalg.matrix_rank(np.vander(y))
     else:
-        n=10
+        n=20
      
     dx = x - x.mean()
     if w is None:
