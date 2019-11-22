@@ -627,10 +627,17 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     )
     ax_prof.set_xlim([X.min(), X.max()])
     ax_prof.set_ylim([Y.min(), Y.max()])
+    #ax_prof.axis('off')
     ax_prof.set_ylabel("SNR")
-    ax_prof.axis('off')
+    ax_prof.tick_params(axis='both', colors=fg_color, labelbottom=False,
+                       labelleft=False, direction='in', left=False, top=True)
+    ax_prof.yaxis.label.set_color(fg_color)
+    try:
+        ax_prof.set_facecolor(bg_color)
+    except AttributeError:
+        ax_prof.set_axis_bgcolor(bg_color)
     ax_prof.ticklabel_format(useOffset=False)
-
+    
     # residuals
     residuals = y - np.polyval(returns_poly[2], x - returns_poly[3])
     residuals -= residuals.min()
