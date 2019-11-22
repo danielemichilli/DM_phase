@@ -627,6 +627,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     )
     ax_prof.set_xlim([X.min(), X.max()])
     ax_prof.set_ylim([Y.min(), Y.max()])
+    ax_prof.set_ylabel("SNR")
     ax_prof.axis('off')
     ax_prof.ticklabel_format(useOffset=False)
 
