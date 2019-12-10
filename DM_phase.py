@@ -411,7 +411,8 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     bottom_lim = [1,]
     dm, _ = _dm_calculation(waterfall, power_spectra, dpower_spectra,
                             bottom_lim[-1], top_lim[-1], f_channels, t_res,
-                            dm_list, no_plots=True)
+                            dm_list, no_plots=True, fname="", phase_lim=None,
+                           blackonwhite=False, fformat=".pdf", dm_curve=None, weight=None)
     waterfall_dedisp = _dedisperse_waterfall(waterfall, dm, f_channels, t_res,
                                              ref_freq=ref_freq)
     plot_wat_map = ax_wat_map.imshow(waterfall_dedisp, origin='lower',
@@ -462,7 +463,8 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
         ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
         dm, _ = _dm_calculation(waterfall, power_spectra, dpower_spectra,
                                 bottom_lim[-1], top_lim[-1], f_channels, t_res,
-                                dm_list, no_plots=True)
+                                dm_list, no_plots=True, fname="",phase_lim=None,
+                                blackonwhite=False, fformat=".pdf", dm_curve=None, weight=None)
         waterfall_dedisp = _dedisperse_waterfall(waterfall, dm, f_channels,
                                                  t_res, ref_freq=ref_freq)
         plot_wat_map.set_data(waterfall_dedisp)
@@ -557,7 +559,7 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     return bottom_lim[-1], top_lim[-1], xlim
 
 
-def _poly_max(x, y, err,w='None'):
+def _poly_max(x, y, err, w='None'):
     """
     Polynomial fit
     """
@@ -570,7 +572,7 @@ def _poly_max(x, y, err,w='None'):
     dx = x - x.mean()
     if w is None:
       p = np.polyfit(dx, y, n)
-      err = max([ np.std(y-np.polyval(p, dx)),  err])
+      err = max( [ np.std(y-np.polyval(p, dx)),  err] )
     else:
       p = np.polyfit(dx,y,n,w = w)
       err = max([ np.sum( w * (y-np.polyval(p, dx))**2.0)**0.5,  err])
@@ -581,8 +583,8 @@ def _poly_max(x, y, err,w='None'):
     first_cut = cands[(cands.imag==0) & (cands.real>=min(dx)) & (cands.real<=max(dx)) & (r_cands<0)]
     if first_cut.size > 0:
         value = np.polyval(p, first_cut)
-        best = first_cut[value.argmax()]
-        delta_x = np.sqrt(np.abs(2 * err / np.polyval(ddp, best)))
+        best = np.real(first_cut[value.argmax()])
+        delta_x = np.sqrt(np.abs( 2.0 * err / np.polyval(ddp, best)) )
     else:
         best = 0.
         delta_x = 0.
@@ -993,23 +995,32 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
                     phase_lim=None, blackonwhite=False, fformat=".pdf", dm_curve=None,weight=None):
     """Calculate the best DM value."""
-    
+    fact_idx = up_idx - low_idx
     if dm_curve is None:
         dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
 
-    fact_idx = up_idx - low_idx
-    max_dm = dm_curve.max()
-    nchan = len(f_channels)
+        
+        max_dm = dm_curve.max()
+        nchan = len(f_channels)
 
-    # based on Gamma(2,)
-    mean = nchan
-    std = mean / np.sqrt(2)
+        # based on Gamma(2,)
+        mean = nchan
+        std = mean / np.sqrt(2)
 
-    m_fact = np.sum(np.arange(low_idx, up_idx) ** 2)
-    s_fact = np.sum(np.arange(low_idx, up_idx) ** 4) ** 0.5
-    dmean = mean * m_fact
-    dstd = std * s_fact
-    snr = (max_dm - dmean) / dstd
+        m_fact = np.sum(np.arange(low_idx, up_idx) ** 2)
+        s_fact = np.sum(np.arange(low_idx, up_idx) ** 4) ** 0.5
+        dmean = mean * m_fact
+        I = np.transpose( 1.0*np.ones([dm_list.size, 1]) * ( 1.0*np.arange(low_idx,up_idx) ) ** 2.0 )
+        dstd1 = ( 1.0*(std * s_fact)**2.0 + np.sum( np.multiply(I, power_spectra[low_idx:up_idx]**2.0) ,axis=0) )**0.5
+        dm_curve = np.divide( (dm_curve -dmean) , dstd1 )
+        weight = dstd1**-1.0
+        dstd = np.max(dstd1)
+
+    else:
+         dstd = 1.0       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
+         
+    snr = dm_curve.max()
+    #snr = (max_dm - dmean) / dstd
 
     peak = dm_curve.argmax()
     width = _get_window(dm_curve) / 2
@@ -1019,14 +1030,15 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
-    dstd = 1       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
-    snr = max_dm
+   
+    #snr = max_dm
     
     if weight is None:
-      returns_poly = _poly_max(x, y, dstd)
+      New_W = 1.0 *  np.ones(x.shape) / np.sum( np.ones(x.shape) )
     else: 
       New_W = weight[plot_range]/np.sum(weight[plot_range])
-      returns_poly = _poly_max(x, y, dstd, w = New_W)
+
+    returns_poly = _poly_max(x, y, dstd, w = New_W)
     #print returns_poly
 
     if not no_plots:
