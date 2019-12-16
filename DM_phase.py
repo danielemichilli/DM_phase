@@ -16,6 +16,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Cursor, SpanSelector, Button
 import scipy.signal
 from scipy.fftpack import fft, ifft
+from scipy.stats import norm
 
 
 plt.rcParams['toolbar'] = 'None'
@@ -163,24 +164,30 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
     idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same').astype(int)
     idx_c[idx_c==0] = 1 
+    idx_c = np.ones(np.shape(idx_c))*(idx_c)
     I = np.ones([n, 1]) * idx_c
     I2_sum = np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1)/6
     I4_sum = np.multiply(np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1),3*idx_c+3*idx_c-1)/30
 
     Lo = np.multiply(Y <= I, dpower_spectra)
     Lo1= np.multiply(Y <= I, np.multiply(power_spectra,dpower_spectra))
-    AV_N_pow = nchan*np.ones( np.shape(idx_c) )
+    AV_N_pow = 2.0*nchan*np.ones( np.shape(idx_c) )
     dm_curve = Lo.sum(axis=0)
     dn_term  = Lo1.sum(axis=0)
     Noise_curve = np.multiply( AV_N_pow, I2_sum )
     #Dem = (Noise_curve/n/2 )
     #Dem = ( nchan * idx_c * n  / np.pi**2)
     #Dem = nchan/3/n *idx_c**3
-    Dem  = ( nchan**2*I4_sum/2.0 + 1.0*dn_term )**0.5
+    Var_dp  = ( 2.0* nchan**2 *I4_sum + 1.0*dn_term )
+    dm_c_err = Var_dp**0.5
+    Dem  = ( 2.0* nchan**2 * ( I4_sum + 2.0 * I2_sum) )**0.5
     SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), Dem )
-    SN_Err = ( 1 + nchan**2 * (I4_sum/2.0 + 1.0*I2_sum) / Dem**2)**0.5
-    SN[np.isnan(SN)]=0
-    return SN,SN_Err
+    #SN_Err = ( 1 + 2*nchan**2 * (1.0*I4_sum + 2.0*I2_sum) / Dem**2)**0.5
+    SN_Err = (np.divide(Var_dp,Dem**2) + 1 + np.multiply( np.divide(SN**2,idx_c), (1 + 8*nchan**2 / Dem**2 ) ) )**0.5
+    #SN_Err = np.divide(SN_Err,SN) 
+    SN[np.isnan(SN)]=0.
+    
+    return dm_curve, dm_c_err, SN
 
 
 def _get_frequency_range_manual(waterfall, f_channels):
@@ -575,7 +582,8 @@ def _poly_max(x, y, err, w='None'):
       err = max( [ np.std(y-np.polyval(p, dx)),  err] )
     else:
       p = np.polyfit(dx,y,n,w = w)
-      err = max([ np.sum( w * (y-np.polyval(p, dx))**2.0)**0.5,  err])
+      err = max([ (np.sum( np.multiply(w , (y-np.polyval(p, dx))**2.0 ) )/np.sum(w))**0.5,  err])
+      #err = max( [ np.std(y-np.polyval(p, dx)),  err] )
     dp = np.polyder(p)
     ddp = np.polyder(dp)
     cands = np.roots(dp)
@@ -625,12 +633,12 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
         color='orange', 
         linewidth=3, 
         zorder=2, 
-        clip_on=False
+        clip_on=True
     )
     ax_prof.set_xlim([X.min(), X.max()])
     ax_prof.set_ylim([Y.min(), Y.max()])
-    #ax_prof.axis('off')
-    ax_prof.set_ylabel("SNR")
+    ax_prof.axis('off')
+    #ax_prof.set_ylabel("SNR")
     ax_prof.tick_params(axis='both', colors=fg_color, labelbottom=False,
                        labelleft=False, direction='in', left=False, top=True)
     ax_prof.yaxis.label.set_color(fg_color)
@@ -695,7 +703,7 @@ def _get_window(profile):
 
 def _check_window(profile, window):
     """Check whether the viewing window will be in the index range."""
-    convolved = np.convolve(profile, np.ones(window), 'same')
+    convolved = np.convolve(1.0*profile, 1.0*np.ones(int(window)), 'same')
     peak_value = np.mean(np.where(convolved == max(convolved)))
     peak = np.where(profile == np.max(profile))
 
@@ -765,7 +773,7 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
           #spike[-1] = 0
  
         kern_l = np.shape(profile)[0]/cutoff
-        spike  = np.convolve( profile, np.ones(kern_l), mode='same')
+        spike  = np.convolve( profile, np.ones(int(kern_l)), mode='same')
         window = _check_window(spike, 2 * width)
 
         tmax = dt * (window[1] - window[0]) * 1000
@@ -964,11 +972,23 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         )
         dm_curve = None
         w = None
+        dstd = None
+        SN = None
     else: 
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
-        dm_curve , SN_Err = _get_dm_curve(power_spectra, dpower_spectra, nchan)
-        w = (1.0/SN_Err)/np.sum(1.0/SN_Err)
+        dm_curve , dm_c_err, SNR = _get_dm_curve(power_spectra, dpower_spectra, nchan)
+        dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1e6
+        #w = None
+        w = SNR 
+        w[np.isnan(w)] = 0.0
+        w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
+        #w  = np.exp(w)
+        w = w / np.sum(w)
+        dstd = np.max(dm_c_err)
+        #w = np.divide(dm_curve,SN_Err) 
+        #w[np.isnan(w)]=0.
+        #w = (w )/np.sum(w)
 
 
     dm, dm_std = _dm_calculation(
@@ -986,25 +1006,29 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         phase_lim = phase_lim,
         blackonwhite = blackonwhite,
         dm_curve = dm_curve,
-        weight   = w
+        weight   = w,
+        dstd     = dstd,
+        SN = np.max(SNR)
     )
     return dm, dm_std
 
 
 def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
-                    phase_lim=None, blackonwhite=False, fformat=".pdf", dm_curve=None,weight=None):
+                    phase_lim=None, blackonwhite=False, fformat=".pdf", 
+                    dm_curve=None,weight=None,dstd=None, SN = None):
     """Calculate the best DM value."""
     fact_idx = up_idx - low_idx
+    nchan = len(f_channels)
     if dm_curve is None:
         dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
 
         
         max_dm = dm_curve.max()
-        nchan = len(f_channels)
+       
 
         # based on Gamma(2,)
-        mean = nchan
+        mean = 2.0*nchan
         std = mean / np.sqrt(2)
 
         m_fact = np.sum(np.arange(low_idx, up_idx) ** 2)
@@ -1013,18 +1037,32 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
         I = np.transpose( 1.0*np.ones([dm_list.size, 1]) * ( 1.0*np.arange(low_idx,up_idx) ) ** 2.0 )
         dstd1 = ( 1.0*(std * s_fact)**2.0 + np.sum( np.multiply(I, power_spectra[low_idx:up_idx]**2.0) ,axis=0) )**0.5
         dm_curve = np.divide( (dm_curve -dmean) , dstd1 )
-        weight = dstd1**-1.0
+        weight = np.multiply(dm_curve, dstd1**-1.0)
         dstd = np.max(dstd1)
 
-    else:
-         dstd = 1.0       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
+    #else:
+         #dstd = 2**0.5       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
          
-    snr = dm_curve.max()
+    #snr = SNR_curve[np
+    max_dm = np.max(dm_curve)
+    #snr = (max_dm - 2*nchan) / (nchan*6.**0.5) 
     #snr = (max_dm - dmean) / dstd
+    snr = SN
 
-    peak = dm_curve.argmax()
-    width = _get_window(dm_curve) / 2
-    Start,Stop = _check_window(dm_curve, width)    
+   
+    if weight is None:
+      peak = dm_curve.argmax()
+      width = _get_window(dm_curve) / 2
+      Start,Stop = _check_window(dm_curve, width)   
+    else: 
+      w_dm_curve = np.multiply(weight,dm_curve)
+      peak = dm_curve.argmax()
+      width = int(_get_window(w_dm_curve) / 4)
+      #Start,Stop = _check_window(w_dm_curve, width)
+      Start = peak - width
+      Stop = peak + width
+      if Start< 0: Start=0
+      if Stop > np.size(w_dm_curve): Stop = np.size(w_dm_curve)
     #plot_range = np.arange(peak - width, peak + width)
     plot_range = np.arange(Start,Stop)
     y = dm_curve[plot_range]
