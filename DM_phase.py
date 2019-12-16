@@ -1057,7 +1057,8 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     else: 
       w_dm_curve = np.multiply(weight,dm_curve)
       peak = dm_curve.argmax()
-      width = int(_get_window(w_dm_curve) / 4)
+      curve = power_spectra[low_idx+1:low_idx+2].sum(axis=0)
+      width = int(_get_window(curve) / 4)
       #Start,Stop = _check_window(w_dm_curve, width)
       Start = peak - width
       Stop = peak + width
