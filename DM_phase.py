@@ -571,10 +571,10 @@ def _poly_max(x, y, err, w='None'):
     Polynomial fit
     """
     ## AS: matrix_rank was hanging on large arrays
-    if np.shape(x)[0] < 20:
+    if np.shape(x)[0] < 7:
         n = np.linalg.matrix_rank(np.vander(y))
     else:
-        n=20
+        n=6
      
     dx = x - x.mean()
     if w is None:
@@ -1059,9 +1059,16 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
       peak = dm_curve.argmax()
       curve = power_spectra[low_idx+1:low_idx+2].sum(axis=0)
       width = int(_get_window(curve) / 4)
+      #width = np.size(dm_curve)
       #Start,Stop = _check_window(w_dm_curve, width)
-      Start = peak - width
-      Stop = peak + width
+      #Heavy_weights = np.argwhere(weight>1e-6)
+      Heavy_weights = np.argwhere( dm_curve > .5*dm_curve[peak] )
+      #width = int(np.mean((Heavy_weights-peak)**2)**0.5/2)
+      peak  = np.mean(Heavy_weights) 
+      width = (np.max(Heavy_weights)-np.min(Heavy_weights)) 
+      if width ==0: width=1
+      Start = Heavy_weights[np.argmin(np.absolute( (peak - width)-Heavy_weights ) ) ]
+      Stop =  Heavy_weights[np.argmin(np.absolute( (peak + width)-Heavy_weights ) ) ]
       if Start< 0: Start=0
       if Stop > np.size(w_dm_curve): Stop = np.size(w_dm_curve)
     #plot_range = np.arange(peak - width, peak + width)
