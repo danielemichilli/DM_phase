@@ -158,6 +158,9 @@ def _get_frequency_range_manual(waterfall, f_channels):
         Minimum and maximum emission frequency index to consider.
 
     """
+    bg_color = "k"
+    fg_color = "w"
+
     fig = plt.figure(figsize=(8., 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.01, bottom=0.01, right=0.95, top=0.94, hspace=0)
     gs = gridspec.GridSpec(2, 2, hspace=0, height_ratios=[1, 4],
@@ -339,6 +342,9 @@ def _get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
         use.
 
     """
+    bg_color = "k"
+    fg_color = "w"
+
     # define axes
     fig = plt.figure(figsize=(12., 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.01, bottom=0.01, right=0.95, top=0.94, hspace=0)
