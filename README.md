@@ -33,6 +33,7 @@ We use [SemVer](http://semver.org/) for versioning. For the versions available, 
 
 * **Andrew Seymour** - *Algorithm definition and mathematical calculations* - [aseymourGBT](https://github.com/aseymourGBT)
 * **Daniele Michilli** - *Main scripter* - [danielemichilli](https://github.com/danielemichilli)
+* **Ziggy Pleunis** - *Implementation of many features and code manteinance* [zpleunis](https://github.com/zpleunis)
 
 See also the list of [contributors](https://github.com/danielemichilli/DM_phase/contributors) who participated in this project.
 
