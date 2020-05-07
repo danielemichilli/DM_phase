@@ -172,25 +172,18 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     Lo = np.multiply(Y <= I, dpower_spectra)
     Lo1= np.multiply(Y <= I, power_spectra)
     #AV_N_pow = 2.0*nchan*np.ones( np.shape(idx_c) )
-    AV_N_pow = nchan*np.ones( np.shape(idx_c) )
+    #AV_N_pow = nchan*np.ones( np.shape(idx_c) )
+    AV_N_pow = nchan*idx_c
     dm_curve = Lo.sum(axis=0)
     dn_term  = Lo1.sum(axis=0)
-    Noise_curve = np.multiply( AV_N_pow, I2_sum )
-    #Dem = (Noise_curve/n/2 )
-    #Dem = ( nchan * idx_c * n  / np.pi**2)
-    #Dem = nchan/3/n *idx_c**3
-    #Var_dp  = ( 2.0* nchan**2 *I4_sum + 1.0*dn_term )
+    Noise_curve =  nchan*I2_sum
     Var_dp  = ( nchan*(nchan-1)*I4_sum + nchan*(2*nchan-1)*I2_sum )
     dm_c_err = Var_dp**0.5
-    #Dem  = ( 2.0* nchan**2 * ( I4_sum + 2.0 * I2_sum) )**0.5
     SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), dm_c_err )
     dm_curve = dm_curve - 1.0 * Noise_curve
-    #SN =  np.divide(dm_curve,1.0*Noise_curve)
-    #SN_Err = ( 1 + 2*nchan**2 * (1.0*I4_sum + 2.0*I2_sum) / Dem**2)**0.5
-    #SN_Err = (np.divide(Var_dp,Dem**2) + 1 + np.multiply( np.divide(SN**2,idx_c), (1 + 8*nchan**2 / Dem**2 ) ) )**0.5
-    #SN_Err = np.divide(SN_Err,SN) 
+    #SN =  np.divide( dn_term - AV_N_pow,( (nchan-1)*AV_N_pow )**0.5)
     SN[np.isnan(SN)]=0.
-    
+    dm_curve[dm_curve<0]=0
     return dm_curve, dm_c_err, SN
 
 
