@@ -568,10 +568,10 @@ def _poly_max(x, y, err, w='None'):
     Polynomial fit
     """
     ## AS: matrix_rank was hanging on large arrays
-    if np.shape(x)[0] < 7:
+    if np.shape(x)[0] < 11:
         n = np.linalg.matrix_rank(np.vander(y))
     else:
-        n=6
+        n = 10
      
     dx = x - x.mean()
     if w is None:
@@ -976,10 +976,10 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         phase_lim = None
         dm_curve , dm_c_err, SNR = _get_dm_curve(power_spectra, dpower_spectra, nchan)
         #dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1
-        w = SNR
+        w = dm_c_err**-2.0
         w[np.isnan(w)] = 0.0
-        w[w<0]=0
-        w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
+        w[dm_curve<0]=0
+        #w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
         #w  = np.exp(w)
         w = w / np.sum(w)
         dstd = np.max(dm_c_err)
@@ -1058,8 +1058,8 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
       width = int(_get_window(w_dm_curve) / 4)
       #width = np.size(dm_curve)
       #Start,Stop = _check_window(w_dm_curve, width)
-      #Heavy_weights = np.argwhere(weight>1e-6)
-      Heavy_weights = np.argwhere( dm_curve > .5*dm_curve[peak] )
+      Heavy_weights = np.argwhere(w_dm_curve > np.mean(w_dm_curve) )
+      #Heavy_weights = np.argwhere( dm_curve > .5*dm_curve[peak] )
       #width = int(np.mean((Heavy_weights-peak)**2)**0.5/2)
       peak  = np.mean(Heavy_weights) 
       width = (np.max(Heavy_weights)-np.min(Heavy_weights)) 
