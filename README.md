@@ -40,4 +40,5 @@ See also the list of [contributors](https://github.com/danielemichilli/DM_phase/
 ## License
 
 This project is licensed under the GNU License - see the [LICENSE.md](LICENSE.md) file for details.
+
 Please, cite ascl.net/1910.004 if you use this code in a publication
