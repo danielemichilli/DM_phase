@@ -170,23 +170,20 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     I4_sum = np.multiply(np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1),3*idx_c+3*idx_c-1)/30
 
     Lo = np.multiply(Y <= I, dpower_spectra)
-    Lo1= np.multiply(Y <= I, np.multiply(power_spectra,dpower_spectra))
-    AV_N_pow = 2.0*nchan*np.ones( np.shape(idx_c) )
+    Lo1= np.multiply(Y <= I, power_spectra)
+    #AV_N_pow = 2.0*nchan*np.ones( np.shape(idx_c) )
+    #AV_N_pow = nchan*np.ones( np.shape(idx_c) )
+    AV_N_pow = nchan*idx_c
     dm_curve = Lo.sum(axis=0)
     dn_term  = Lo1.sum(axis=0)
-    Noise_curve = np.multiply( AV_N_pow, I2_sum )
-    #Dem = (Noise_curve/n/2 )
-    #Dem = ( nchan * idx_c * n  / np.pi**2)
-    #Dem = nchan/3/n *idx_c**3
-    Var_dp  = ( 2.0* nchan**2 *I4_sum + 1.0*dn_term )
+    Noise_curve =  nchan*I2_sum
+    Var_dp  = ( nchan*(nchan-1)*I4_sum + nchan*(2*nchan-1)*I2_sum )
     dm_c_err = Var_dp**0.5
-    Dem  = ( 2.0* nchan**2 * ( I4_sum + 2.0 * I2_sum) )**0.5
-    SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), Dem )
-    #SN_Err = ( 1 + 2*nchan**2 * (1.0*I4_sum + 2.0*I2_sum) / Dem**2)**0.5
-    SN_Err = (np.divide(Var_dp,Dem**2) + 1 + np.multiply( np.divide(SN**2,idx_c), (1 + 8*nchan**2 / Dem**2 ) ) )**0.5
-    #SN_Err = np.divide(SN_Err,SN) 
+    SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), dm_c_err )
+    dm_curve = dm_curve - 1.0 * Noise_curve
+    #SN =  np.divide( dn_term - AV_N_pow,( (nchan-1)*AV_N_pow )**0.5)
     SN[np.isnan(SN)]=0.
-    
+    dm_curve[dm_curve<0]=0
     return dm_curve, dm_c_err, SN
 
 
@@ -577,10 +574,10 @@ def _poly_max(x, y, err, w='None'):
     Polynomial fit
     """
     ## AS: matrix_rank was hanging on large arrays
-    if np.shape(x)[0] < 7:
+    if np.shape(x)[0] < 11:
         n = np.linalg.matrix_rank(np.vander(y))
     else:
-        n=6
+        n = 10
      
     dx = x - x.mean()
     if w is None:
@@ -984,11 +981,11 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
         dm_curve , dm_c_err, SNR = _get_dm_curve(power_spectra, dpower_spectra, nchan)
-        dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1e6
-        #w = None
-        w = SNR 
+        #dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1
+        w = SNR
         w[np.isnan(w)] = 0.0
-        w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
+        w[dm_curve<0]=0
+        #w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
         #w  = np.exp(w)
         w = w / np.sum(w)
         dstd = np.max(dm_c_err)
@@ -1034,8 +1031,8 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
        
 
         # based on Gamma(2,)
-        mean = 2.0*nchan
-        std = mean / np.sqrt(2)
+        mean = nchan
+        std = (nchan*(nchan-1))**0.5
 
         m_fact = np.sum(np.arange(low_idx, up_idx) ** 2)
         s_fact = np.sum(np.arange(low_idx, up_idx) ** 4) ** 0.5
@@ -1062,13 +1059,13 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
       Start,Stop = _check_window(dm_curve, width)   
     else: 
       w_dm_curve = np.multiply(weight,dm_curve)
-      peak = dm_curve.argmax()
+      peak = w_dm_curve.argmax()
       curve = power_spectra[low_idx+1:low_idx+2].sum(axis=0)
-      width = int(_get_window(curve) / 4)
+      width = int(_get_window(w_dm_curve) / 4)
       #width = np.size(dm_curve)
       #Start,Stop = _check_window(w_dm_curve, width)
-      #Heavy_weights = np.argwhere(weight>1e-6)
-      Heavy_weights = np.argwhere( dm_curve > .5*dm_curve[peak] )
+      Heavy_weights = np.argwhere(w_dm_curve > np.mean(w_dm_curve) )
+      #Heavy_weights = np.argwhere( dm_curve > .5*dm_curve[peak] )
       #width = int(np.mean((Heavy_weights-peak)**2)**0.5/2)
       peak  = np.mean(Heavy_weights) 
       width = (np.max(Heavy_weights)-np.min(Heavy_weights)) 
