@@ -163,25 +163,25 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     var_sm = scipy.signal.convolve2d(var, np.ones([9, 3]) /27 , mode='same', boundary='wrap')
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
     idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same').astype(int)
-    idx_c[idx_c==0] = 1 
+    idx_c[idx_c ==0 ] = 1 
     idx_c = np.ones(np.shape(idx_c))*(idx_c)
     I = np.ones([n, 1]) * idx_c
     I2_sum = np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1)/6
     I4_sum = np.multiply(np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1),3*idx_c+3*idx_c-1)/30
 
     Lo = np.multiply(Y <= I, dpower_spectra)
-    Lo1= np.multiply(Y <= I, power_spectra)
+    Lo1= np.multiply(Y <= I, np.multiply(power_spectra,dpower_spectra))
     #AV_N_pow = 2.0*nchan*np.ones( np.shape(idx_c) )
     #AV_N_pow = nchan*np.ones( np.shape(idx_c) )
     AV_N_pow = nchan*idx_c
     dm_curve = Lo.sum(axis=0)
     dn_term  = Lo1.sum(axis=0)
     Noise_curve =  nchan*I2_sum
-    Var_dp  = ( nchan*(nchan-1)*I4_sum + nchan*(2*nchan-1)*I2_sum )
+    #Var_dp  = ( nchan*(nchan-1)*I4_sum + nchan*(2*nchan-1)*I2_sum )
+    Var_dp = nchan**2*I4_sum + dn_term
     dm_c_err = Var_dp**0.5
-    SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), dm_c_err )
-    dm_curve = dm_curve - 1.0 * Noise_curve
-    #SN =  np.divide( dn_term - AV_N_pow,( (nchan-1)*AV_N_pow )**0.5)
+    SN  =  np.divide( dm_curve, Noise_curve )
+    dm_curve = dm_curve - Noise_curve
     SN[np.isnan(SN)]=0.
     dm_curve[dm_curve<0]=0
     return dm_curve, dm_c_err, SN
