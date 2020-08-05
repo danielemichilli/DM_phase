@@ -674,14 +674,21 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     extent = [np.min(X), np.max(X), low_idx * idx2ang, up_idx * idx2ang]
     ax_map.imshow(dm_map[low_idx : up_idx], origin='lower', aspect='auto',
                   cmap=COLORMAP, extent=extent, interpolation='none')
-    ax_map.tick_params(axis='both', colors=fg_color, direction='in',
-                       right=True, top=True)
+    ax_map.tick_params(axis='x', colors=fg_color, direction='in',
+                       top=True)
     ax_map.xaxis.label.set_color(fg_color)
     ax_map.yaxis.label.set_color(fg_color)
     ax_map.set_xlabel("DM (pc cm$^{-3}$)")
     # from p. 142 in pulsar handbook, also see Camilo et al. (1996)
     ax_map.set_ylabel("Fluctuation Frequency (ms$^{-1}$)")
     ax_map.ticklabel_format(useOffset=False)
+    
+    ax_idx = ax_map.twinx()
+    ax_idx.set_ylim(low_idx, up_idx)
+    ax_idx.yaxis.label.set_color(fg_color)
+    ax_idx.tick_params(axis='y', colors=fg_color, direction='in',
+                       right=True)
+    ax_idx.set_ylabel("Fluctuation Frequency (index)")
 
     try:
         fig.align_ylabels([ax_map, ax_res])
@@ -897,7 +904,8 @@ def from_PSRCHIVE(fname, dm_s, dm_e, dm_step, ref_freq="top",
 
 def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
            manual_cutoff=False, manual_bandwidth=False, fname="",
-           no_plots=False, blackonwhite=False, fformat=".pdf"):
+           no_plots=False, blackonwhite=False, fformat=".pdf",
+           ff_top_cutoff=None, ff_bottom_cutoff=None):
     """Brute-force search of the Dispersion Measure of a waterfall numpy
     matrix. The algorithm uses phase information and is robust to
     interference and unusual burst shapes.
@@ -921,6 +929,16 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         If False, use the full frequency bandwidth.
     fname : str, optional. Default = ""
         Filename used as a prefix for the diagnostic plots.
+    no_plots : bool, optional. Default = False
+        Do not produce plots
+    blackonwhite : bool, optional. Default = False
+        Change the colorscale to black and white
+    fformat : str, optional. Default = ".pdf"
+        File extension of diagnostic plots
+    ff_top_cutoff : int, optional. Default: None
+        Top cutoff of the fluctuation frequency used
+    ff_bottom_cutoff : int, optional. Default: None
+        Bottom cutoff of the fluctuation frequency used
 
     Returns
     -------
@@ -936,6 +954,9 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     else:
         low_ch_idx = 0
         up_ch_idx = waterfall.shape[0]
+    
+    if up_ch_idx - low_ch_idx < 6: 
+        raise IndexError("At least 5 frequency channels must be present in the waterfall")
 
     waterfall = waterfall[low_ch_idx:up_ch_idx, ...]
     f_channels = f_channels[low_ch_idx:up_ch_idx]
@@ -979,6 +1000,10 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         SN = None
     else: 
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
+        if ff_top_cutoff is not None:
+            up_idx = ff_top_cutoff
+        if ff_bottom_cutoff is not None:
+            low_idx = ff_bottom_cutoff
         phase_lim = None
         dm_curve , dm_c_err, SNR = _get_dm_curve(power_spectra, dpower_spectra, nchan)
         #dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1
