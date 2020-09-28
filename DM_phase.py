@@ -419,7 +419,7 @@ def get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
     # plot waterfall
     top_lim = [power_spectra.shape[0],]
     bottom_lim = [1,]
-    dm,  = dm_calculation(waterfall, power_spectra, dpower_spectra,
+    dm, _ = dm_calculation(waterfall, power_spectra, dpower_spectra,
                             bottom_lim[-1], top_lim[-1], f_channels, t_res,
                             dm_list, no_plots=True, fname="", phase_lim=None,
                            blackonwhite=False, fformat=".pdf", dm_curve=None, weight=None)
@@ -471,7 +471,7 @@ def get_f_threshold_manual(power_spectra, dpower_spectra, waterfall, dm_list,
         pow_prof = dpower_spectra[bottom_lim[-1]:top_lim[-1]].sum(axis=0)
         plot_pow_prof.set_ydata(pow_prof)
         ax_pow_prof.set_ylim([pow_prof.min(), pow_prof.max()])
-        dm,  = dm_calculation(waterfall, power_spectra, dpower_spectra,
+        dm, _ = dm_calculation(waterfall, power_spectra, dpower_spectra,
                                 bottom_lim[-1], top_lim[-1], f_channels, t_res,
                                 dm_list, no_plots=True, fname="",phase_lim=None,
                                 blackonwhite=False, fformat=".pdf", dm_curve=None, weight=None)
@@ -604,7 +604,7 @@ def poly_max(x, y, err, w='None'):
 
 
 def plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
-                snr, t_res, fname="", blackonwhite=False, fformat=".pdf"):
+                t_res, snr=None, fname="", blackonwhite=False, fformat=".pdf"):
     """Diagnostic plot of coherent power vs dispersion measure."""
     if low_idx==0:
         low_idx=1
@@ -624,8 +624,12 @@ def plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     ax_res = fig.add_subplot(gs[1], sharex=ax_prof)
     ax_map = fig.add_subplot(gs[2], sharex=ax_prof)
 
-    title = "{0:}\nBest DM = {1:.3f} $\pm$ {2:.3f}\nS/N = {3:.1f}".format(
-        fname, returns_poly[0], returns_poly[1], snr)
+    if snr is None:
+        title = "{0:}\nBest DM = {1:.3f} $\pm$ {2:.3f}".format(
+            fname, returns_poly[0], returns_poly[1])
+    else:
+        title = "{0:}\nBest DM = {1:.3f} $\pm$ {2:.3f}\nS/N = {3:.1f}".format(
+            fname, returns_poly[0], returns_poly[1], snr)
     fig.suptitle(title, color=fg_color, linespacing=1.5)
 
     # Profile
@@ -905,7 +909,7 @@ def from_PSRCHIVE(fname, dm_s, dm_e, dm_step, ref_freq="top",
 def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
            manual_cutoff=False, manual_bandwidth=False, fname="",
            no_plots=False, blackonwhite=False, fformat=".pdf",
-           ff_top_cutoff=None, ff_bottom_cutoff=None):
+           ff_cutoff=None, time_lim=None):
     """Brute-force search of the Dispersion Measure of a waterfall numpy
     matrix. The algorithm uses phase information and is robust to
     interference and unusual burst shapes.
@@ -917,28 +921,28 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     dm_list : list
         List of Dispersion Measure values to search (pc/cc).
     t_res : float
-        Time resolution of each phase bin (s).
+        Time resolution of each time bin (s).
     f_channels : list
-        Central frequency of each channel, from low to high (MHz).
+        Central frequency of each channel (MHz).
     ref_freq : str, optional. Default = "top"
         Use either the "top", "center" or "bottom" of the band as
         reference frequency for dedispersion.
     manual_cutoff : bool, optional. Default = False
-        If False, the power spectrum cutoff is automatically selected.
+        Graphical interface to manually select a fluctuation frequency cutoff.
     manual_bandwidth : bool, optional. Default = False
-        If False, use the full frequency bandwidth.
+        Graphical interface to manually select a frequency cutoff in the waterfall
     fname : str, optional. Default = ""
         Filename used as a prefix for the diagnostic plots.
+    fformat : str, optional. Default = ".pdf"
+        File extension of diagnostic plots
     no_plots : bool, optional. Default = False
         Do not produce plots
     blackonwhite : bool, optional. Default = False
-        Change the colorscale to black and white
-    fformat : str, optional. Default = ".pdf"
-        File extension of diagnostic plots
-    ff_top_cutoff : int, optional. Default: None
-        Top cutoff of the fluctuation frequency used
-    ff_bottom_cutoff : int, optional. Default: None
-        Bottom cutoff of the fluctuation frequency used
+        Change the plot colorscale to black and white
+    ff_cutoff : list , optional. Default: None
+        Indices for the cutoff of the fluctuation frequency
+    time_lim : list , optional. Default: None
+        Indices for the time limits of the pulse profile
 
     Returns
     -------
@@ -984,7 +988,9 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     mean = nchan
     std = nchan / np.sqrt(2)
 
-    if manual_cutoff:
+    if ff_cutoff is not None:
+        low_idx, up_idx = ff_cutoff
+    elif manual_cutoff:
         low_idx, up_idx, phase_lim = get_f_threshold_manual(
             power_spectra, 
             dpower_spectra, 
@@ -994,35 +1000,21 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
             t_res, 
             ref_freq=ref_freq
         )
-        dm_curve = None
-        w = None
-        dstd = None
-        SN = None
     else: 
         low_idx, up_idx = get_f_threshold(power_spectra, mean, std)
-        if ff_top_cutoff is not None:
-            up_idx = ff_top_cutoff
-        if ff_bottom_cutoff is not None:
-            low_idx = ff_bottom_cutoff
-        phase_lim = None
-        dm_curve , dm_c_err, SNR = get_dm_curve(power_spectra, dpower_spectra, nchan)
-        #dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1
-        w = SNR
-        w[np.isnan(w)] = 0.0
-        w[dm_curve<0]=0
-        #w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
-        #w  = np.exp(w)
-        w = w / np.sum(w)
-        dstd = np.max(dm_c_err)
-        #w = np.divide(dm_curve,SN_Err) 
-        #w[np.isnan(w)]=0.
-        #w = (w )/np.sum(w)
 
+    dm_curve , dm_c_err, w = get_dm_curve(power_spectra, dpower_spectra, nchan)
+    snr_max = np.max(w)
+    w[np.isnan(w)] = 0.0
+    w[dm_curve<0]=0
+    w = w / np.sum(w)
+    dstd = np.max(dm_c_err)
 
     dm, dm_std = dm_calculation(
         waterfall, 
         power_spectra, 
         dpower_spectra,
+        dm_curve,
         low_idx, 
         up_idx, 
         f_channels, 
@@ -1031,52 +1023,23 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         no_plots = no_plots, 
         fname = fname,
         fformat = fformat, 
-        phase_lim = phase_lim,
+        phase_lim = time_lim,
         blackonwhite = blackonwhite,
-        dm_curve = dm_curve,
         weight   = w,
         dstd     = dstd,
-        SN = np.max(SNR)
+        snr = snr_max
     )
     return dm, dm_std
 
 
-def dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
+def dm_calculation(waterfall, power_spectra, dpower_spectra, dm_curve, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
                     phase_lim=None, blackonwhite=False, fformat=".pdf", 
-                    dm_curve=None,weight=None,dstd=None, SN = None):
+                    weight=None,dstd=None, snr=None):
     """Calculate the best DM value."""
     fact_idx = up_idx - low_idx
     nchan = len(f_channels)
-    if dm_curve is None:
-        dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
-
-        
-        max_dm = dm_curve.max()
-       
-
-        # based on Gamma(2,)
-        mean = nchan
-        std = (nchan*(nchan-1))**0.5
-
-        m_fact = np.sum(np.arange(low_idx, up_idx) ** 2)
-        s_fact = np.sum(np.arange(low_idx, up_idx) ** 4) ** 0.5
-        dmean = mean * m_fact
-        I = np.transpose( 1.0*np.ones([dm_list.size, 1]) * ( 1.0*np.arange(low_idx,up_idx) ) ** 2.0 )
-        dstd1 = ( 1.0*(std * s_fact)**2.0 + np.sum( np.multiply(I, power_spectra[low_idx:up_idx]**2.0) ,axis=0) )**0.5
-        dm_curve = np.divide( (dm_curve -dmean) , dstd1 )
-        weight = np.multiply(dm_curve, dstd1**-1.0)
-        dstd = np.max(dstd1)
-
-    #else:
-         #dstd = 2**0.5       #Overwrite terms to get correct values from get_dm_curve (min error possible)
-         
-    #snr = SNR_curve[np
     max_dm = np.max(dm_curve)
-    #snr = (max_dm - 2*nchan) / (nchan*6.**0.5) 
-    #snr = (max_dm - dmean) / dstd
-    snr = SN
-
    
     if weight is None:
       peak = dm_curve.argmax()
@@ -1104,9 +1067,6 @@ def dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
-   
-    #snr = max_dm
-    
     if weight is None:
       New_W = 1.0 *  np.ones(x.shape) / np.sum( np.ones(x.shape) )
     else: 
@@ -1117,7 +1077,7 @@ def dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
 
     if not no_plots:
         plot_power(power_spectra, low_idx, up_idx, dm_list, dm_curve,
-                    plot_range, returns_poly, x, y, snr, t_res, fname=fname,
+                    plot_range, returns_poly, x, y, t_res, snr=snr, fname=fname,
                     fformat=fformat, blackonwhite=blackonwhite)
         plot_waterfall(returns_poly, waterfall, t_res, f_channels, fact_idx,
                         fname=fname, fformat=fformat, window=phase_lim,
@@ -1164,7 +1124,7 @@ def get_parser():
     return parser.parse_args()
 
 
-if  __name__ == "__main__":
+if __name__ == "__main__":
     args = get_parser()
     import psrchive
     dm, dm_std = from_PSRCHIVE(
