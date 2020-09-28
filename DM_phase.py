@@ -135,7 +135,7 @@ def get_f_threshold(power_spectra, mean, std):
     """
     peak_power = np.max(power_spectra, axis=1)
     snr = (peak_power - mean) / std
-    kern = np.round(_get_window(snr) / 2).astype(int)
+    kern = np.round(get_window(snr) / 2).astype(int)
     # always use at least 5
     if kern < 5:
         kern = 5
@@ -908,7 +908,7 @@ def from_PSRCHIVE(fname, dm_s, dm_e, dm_step, ref_freq="top",
 def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
            manual_cutoff=False, manual_bandwidth=False, fname="",
            no_plots=False, blackonwhite=False, fformat=".pdf",
-           ff_cutoff=None):
+           ff_cutoff=None, time_lim=None):
     """Brute-force search of the Dispersion Measure of a waterfall numpy
     matrix. The algorithm uses phase information and is robust to
     interference and unusual burst shapes.
@@ -940,6 +940,8 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         Change the plot colorscale to black and white
     ff_cutoff : list , optional. Default: None
         Indices for the cutoff of the fluctuation frequency
+    time_lim : list , optional. Default: None
+        Indices for the time limits of the pulse profile
 
     Returns
     -------
@@ -985,8 +987,11 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
     mean = nchan
     std = nchan / np.sqrt(2)
 
-    if manual_cutoff:
-        low_idx, up_idx, phase_lim = get_f_threshold_manual(
+
+    if ff_cutoff is not None:
+        low_idx, up_idx = ff_cutoff
+    elif manual_cutoff:
+        low_idx, up_idx, time_lim = get_f_threshold_manual(
             power_spectra, 
             dpower_spectra, 
             waterfall, 
@@ -995,26 +1000,15 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
             t_res, 
             ref_freq=ref_freq
         )
-        dm_curve = None
-        w = None
-        dstd = None
-        snr = None
-    elif ff_cutoff is not None:
-        low_idx, up_idx = ff_cutoff
-        dm_curve = None
-        w = None
-        dstd = None
-        snr = None
-        phase_lim = None
     else: 
         low_idx, up_idx = get_f_threshold(power_spectra, mean, std)
-        phase_lim = None
-        dm_curve , dm_c_err, snr = get_dm_curve(power_spectra, dpower_spectra, nchan)
-        w = snr
-        w[np.isnan(w)] = 0.0
-        w[dm_curve<0]=0
-        w = w / np.sum(w)
-        dstd = np.max(dm_c_err)
+
+    dm_curve , dm_c_err, snr = get_dm_curve(power_spectra, dpower_spectra, nchan)
+    w = snr
+    w[np.isnan(w)] = 0.0
+    w[dm_curve<0]=0
+    w = w / np.sum(w)
+    dstd = np.max(dm_c_err)
 
     dm, dm_std = dm_calculation(
         waterfall, 
@@ -1028,7 +1022,7 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         no_plots = no_plots, 
         fname = fname,
         fformat = fformat, 
-        phase_lim = phase_lim,
+        phase_lim = time_lim,
         blackonwhite = blackonwhite,
         dm_curve = dm_curve,
         weight   = w,
@@ -1060,8 +1054,6 @@ def dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
         dm_curve = np.divide( (dm_curve -dmean) , dstd1 )
         weight = np.multiply(dm_curve, dstd1**-1.0)
         dstd = np.max(dstd1)
-        if snr is None:
-            snr = (dm_curve.max() - dmean) / dstd
 
     max_dm = np.max(dm_curve)
    
@@ -1073,7 +1065,7 @@ def dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
       w_dm_curve = np.multiply(weight,dm_curve)
       peak = w_dm_curve.argmax()
       curve = power_spectra[low_idx+1:low_idx+2].sum(axis=0)
-      width = int(_get_window(w_dm_curve) / 4)
+      width = int(get_window(w_dm_curve) / 4)
       #width = np.size(dm_curve)
       #Start,Stop = check_window(w_dm_curve, width)
       Heavy_weights = np.argwhere(w_dm_curve > np.mean(w_dm_curve) )
