@@ -45,21 +45,26 @@ def test_get_dm(waterfall):
     ftop = 800.1953125  # MHz
     df = (ftop - fbottom) / nchan
 
-    center_frequencies = np.arange(fbottom + df / 2., ftop, df)
+    center_frequencies = np.arange(fbottom + df / 2.0, ftop, df)
 
     trials = 100
 
     dms = np.linspace(data_dm - ddm, data_dm + ddm, trials)
 
-    dm, dm_e = get_dm(waterfall, dms - data_dm, sampling_time,
-                      center_frequencies, fname="B0355+54_test",
-                      manual_cutoff=False, manual_bandwidth=False,
-                      ref_freq="center")
+    dm, dm_e = get_dm(
+        waterfall,
+        dms - data_dm,
+        sampling_time,
+        center_frequencies,
+        fname="B0355+54_test",
+        manual_cutoff=False,
+        manual_bandwidth=False,
+        ref_freq="center",
+    )
 
     dm += data_dm
 
-    print("Phase structure-optimizing DM is {:.2f} +/- {:.2f}..".format(
-        dm, dm_e))
+    print("Phase structure-optimizing DM is {:.2f} +/- {:.2f}..".format(dm, dm_e))
 
     # check if DM and uncertainty are OK
     assert abs(source_dm - dm) < dm_e
