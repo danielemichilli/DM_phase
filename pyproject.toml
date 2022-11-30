@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "dm-phase"
+version = "0.1.1"
+description = "Find the best Dispersion Measure by using FFT phase angle."
+authors = ["Andrew Seymour and Daniele Michilli"]
+license = "GNU GENERAL PUBLIC LICENSE Version 3"
+readme = "README.md"
+url = "https://github.com/danielemichilli/DM_phase"
+classifiers=[
+        "Operating System :: Unix",
+        'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3.7'
+    ]
+packages = [{include = "dm_phase"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
