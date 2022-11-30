@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "dm-phase"
+name = "dmphase"
 version = "0.1.1"
 description = "Find the best Dispersion Measure by using FFT phase angle."
 authors = ["Andrew Seymour and Daniele Michilli"]
