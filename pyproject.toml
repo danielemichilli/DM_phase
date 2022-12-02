@@ -15,7 +15,7 @@ classifiers=[
 packages = [{include = "DM_phase"}]
 
 [tool.poetry.dependencies]
-python = ">=3.7"
+python = "^3.8"
 numpy = ">=1.13"
 matplotlib = ">=2.1"
 scipy = ">=0.19"
