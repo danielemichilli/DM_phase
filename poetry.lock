@@ -29,26 +29,6 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
-name = "dm-phase"
-version = "0.1.1"
-description = "Find the best Dispersion Measure by using FFT phase angle."
-category = "main"
-optional = true
-python-versions = "^3.7"
-develop = false
-
-[package.dependencies]
-matplotlib = ">=2.1"
-numpy = ">=1.13"
-scipy = ">=0.19"
-
-[package.source]
-type = "git"
-url = "https://github.com/shinybrar/DM_phase.git"
-reference = "HEAD"
-resolved_reference = "87a11579cfa9c01d74298fa40fade971f200cf94"
-
-[[package]]
 name = "exceptiongroup"
 version = "1.0.4"
 description = "Backport of PEP 654 (exception groups)"
@@ -341,7 +321,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "46f32217662ee997689cde6f9d6d7520480a326429bebda7b811f1a3c37c912b"
+content-hash = "85dc4e8a1b37e1d2decff7ceb544adf875fb4373260fa555c5ff4b0765fca0e1"
 
 [metadata.files]
 attrs = [
@@ -356,7 +336,6 @@ cycler = [
     {file = "cycler-0.11.0-py3-none-any.whl", hash = "sha256:3a27e95f763a428a739d2add979fa7494c912a32c17c4c38c4d5f082cad165a3"},
     {file = "cycler-0.11.0.tar.gz", hash = "sha256:9c87405839a19696e837b3b818fed3f5f69f16f1eec1a1ad77e043dcea9c772f"},
 ]
-dm-phase = []
 exceptiongroup = [
     {file = "exceptiongroup-1.0.4-py3-none-any.whl", hash = "sha256:542adf9dea4055530d6e1279602fa5cb11dab2395fa650b8674eaec35fc4a828"},
     {file = "exceptiongroup-1.0.4.tar.gz", hash = "sha256:bd14967b79cd9bdb54d97323216f8fdf533e278df937aa2a90089e7d6e06e5ec"},

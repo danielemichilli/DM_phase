@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "dmphase"
+name = "DM_phase"
 version = "0.1.1"
 description = "Find the best Dispersion Measure by using FFT phase angle."
 authors = ["Andrew Seymour and Daniele Michilli"]
@@ -19,8 +19,6 @@ python = "^3.7"
 numpy = ">=1.13"
 matplotlib = ">=2.1"
 scipy = ">=0.19"
-dm-phase = {git = "https://github.com/shinybrar/DM_phase.git", optional = true}
-
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.0"
