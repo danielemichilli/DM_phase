@@ -12,13 +12,14 @@ classifiers=[
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.7'
     ]
-packages = [{include = "dm_phase"}]
+packages = [{include = "DM_phase"}]
 
 [tool.poetry.dependencies]
 python = "^3.7"
 numpy = ">=1.13"
 matplotlib = ">=2.1"
 scipy = ">=0.19"
+dm-phase = {git = "https://github.com/shinybrar/DM_phase.git", optional = true}
 
 
 [tool.poetry.group.dev.dependencies]
