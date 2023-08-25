@@ -152,18 +152,18 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     X, Y = np.meshgrid(np.arange(m), np.arange(n))
     num_el = (n - Y).astype(float)
     S = np.divide(
-        np.sum(power_spectra, axis=0).T - np.cumsum(power_spectra, axis=0), 
+        np.sum(power_spectra, axis=0).T - np.cumsum(power_spectra, axis=0),
         num_el
     )
     S2 = np.divide(
-        np.sum(power_spectra**2, axis=0).T - np.cumsum(power_spectra**2, axis=0), 
+        np.sum(power_spectra**2, axis=0).T - np.cumsum(power_spectra**2, axis=0),
         num_el
     )
     var = np.divide( (S2 - S**2), num_el)
     var_sm = scipy.signal.convolve2d(var, np.ones([9, 3]) /27 , mode='same', boundary='wrap')
     idx_f = np.argmin(var_sm[:-10, :], axis=0)
     idx_c = np.convolve(idx_f, np.ones(3) / 3., mode='same').astype(int)
-    idx_c[idx_c==0] = 1 
+    idx_c[idx_c==0] = 1
     idx_c = np.ones(np.shape(idx_c))*(idx_c)
     I = np.ones([n, 1]) * idx_c
     I2_sum = np.multiply(np.multiply(idx_c,idx_c+1),2*idx_c+1)/6
@@ -184,9 +184,9 @@ def _get_dm_curve(power_spectra, dpower_spectra,nchan):
     SN =  np.divide( ( dm_curve - 1.0*Noise_curve ), Dem )
     #SN_Err = ( 1 + 2*nchan**2 * (1.0*I4_sum + 2.0*I2_sum) / Dem**2)**0.5
     SN_Err = (np.divide(Var_dp,Dem**2) + 1 + np.multiply( np.divide(SN**2,idx_c), (1 + 8*nchan**2 / Dem**2 ) ) )**0.5
-    #SN_Err = np.divide(SN_Err,SN) 
+    #SN_Err = np.divide(SN_Err,SN)
     SN[np.isnan(SN)]=0.
-    
+
     return dm_curve, dm_c_err, SN
 
 
@@ -581,8 +581,8 @@ def _poly_max(x, y, err, w='None'):
         n = np.linalg.matrix_rank(np.vander(y))
     else:
         n=6
-     
     dx = x - x.mean()
+
     if w is None:
       p = np.polyfit(dx, y, n)
       err = max( [ np.std(y-np.polyval(p, dx)),  err] )
@@ -619,7 +619,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
         fg_color = "w"
     if fformat not in [".pdf", ".png"]:
         fformat = ".pdf"
-    
+
     fig = plt.figure(figsize=(6, 8.5), facecolor=bg_color)
     fig.subplots_adjust(left=0.1, bottom=0.05, right=0.99, top=0.88)
     gs = gridspec.GridSpec(3, 1, hspace=0, height_ratios=[3, 1, 9])
@@ -634,11 +634,11 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     # Profile
     ax_prof.plot(X, Y, fg_color+'-', linewidth=3, clip_on=False)
     ax_prof.plot(
-        X[plot_range], 
+        X[plot_range],
         np.polyval(returns_poly[2], X[plot_range] - returns_poly[3]),
-        color='orange', 
-        linewidth=3, 
-        zorder=2, 
+        color='orange',
+        linewidth=3,
+        zorder=2,
         clip_on=True
     )
     ax_prof.set_xlim([X.min(), X.max()])
@@ -653,7 +653,7 @@ def _plot_power(dm_map, low_idx, up_idx, X, Y, plot_range, returns_poly, x, y,
     except AttributeError:
         ax_prof.set_axis_bgcolor(bg_color)
     ax_prof.ticklabel_format(useOffset=False)
-    
+
     # residuals
     residuals = y - np.polyval(returns_poly[2], x - returns_poly[3])
     residuals -= residuals.min()
@@ -777,7 +777,7 @@ def _plot_waterfall(returns_poly, waterfall, dt, f, cutoff, fname="",
           #spike = np.real(ifft(np.multiply(fft(profile),np.multiply(coherence_spectrum, spectrum_filter))))
           #spike[0] = 0
           #spike[-1] = 0
- 
+
         kern_l = np.shape(profile)[0]/cutoff
         spike  = np.convolve( profile, np.ones(int(kern_l)), mode='same')
         window = _check_window(spike, 2 * width)
@@ -949,10 +949,10 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
 
     for i, dm in enumerate(dm_list):
         waterfall_dedisp = _dedisperse_waterfall(
-            waterfall, 
-            dm, 
+            waterfall,
+            dm,
             f_channels,
-            t_res, 
+            t_res,
             ref_freq=ref_freq
         )
         power_spectrum = _get_coherent_power_spectrum(waterfall_dedisp)
@@ -968,47 +968,47 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
 
     if manual_cutoff:
         low_idx, up_idx, phase_lim = _get_f_threshold_manual(
-            power_spectra, 
-            dpower_spectra, 
-            waterfall, 
-            dm_list, 
+            power_spectra,
+            dpower_spectra,
+            waterfall,
+            dm_list,
             f_channels,
-            t_res, 
+            t_res,
             ref_freq=ref_freq
         )
         dm_curve = None
         w = None
         dstd = None
         SN = None
-    else: 
+    else:
         low_idx, up_idx = _get_f_threshold(power_spectra, mean, std)
         phase_lim = None
         dm_curve , dm_c_err, SNR = _get_dm_curve(power_spectra, dpower_spectra, nchan)
         dm_curve[SNR<5.0]=dm_curve[SNR<5.0]/1e6
         #w = None
-        w = SNR 
+        w = SNR
         w[np.isnan(w)] = 0.0
         w[SNR<5.0]     = 1/1e6  # Setting to Zero Mess with low SNR cands
         #w  = np.exp(w)
         w = w / np.sum(w)
         dstd = np.max(dm_c_err)
-        #w = np.divide(dm_curve,SN_Err) 
+        #w = np.divide(dm_curve,SN_Err)
         #w[np.isnan(w)]=0.
         #w = (w )/np.sum(w)
 
 
     dm, dm_std = _dm_calculation(
-        waterfall, 
-        power_spectra, 
+        waterfall,
+        power_spectra,
         dpower_spectra,
-        low_idx, 
-        up_idx, 
-        f_channels, 
-        t_res, 
+        low_idx,
+        up_idx,
+        f_channels,
+        t_res,
         dm_list,
-        no_plots = no_plots, 
+        no_plots = no_plots,
         fname = fname,
-        fformat = fformat, 
+        fformat = fformat,
         phase_lim = phase_lim,
         blackonwhite = blackonwhite,
         dm_curve = dm_curve,
@@ -1021,7 +1021,7 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
 
 def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
                     f_channels, t_res, dm_list, no_plots=False, fname="",
-                    phase_lim=None, blackonwhite=False, fformat=".pdf", 
+                    phase_lim=None, blackonwhite=False, fformat=".pdf",
                     dm_curve=None,weight=None,dstd=None, SN = None):
     """Calculate the best DM value."""
     fact_idx = up_idx - low_idx
@@ -1029,9 +1029,9 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     if dm_curve is None:
         dm_curve = dpower_spectra[low_idx:up_idx].sum(axis=0)
 
-        
+
         max_dm = dm_curve.max()
-       
+
 
         # based on Gamma(2,)
         mean = 2.0*nchan
@@ -1048,19 +1048,19 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
 
     #else:
          #dstd = 2**0.5       #Overwrite terms to get correct values from _get_dm_curve (min error possible)
-         
+
     #snr = SNR_curve[np
     max_dm = np.max(dm_curve)
-    #snr = (max_dm - 2*nchan) / (nchan*6.**0.5) 
+    #snr = (max_dm - 2*nchan) / (nchan*6.**0.5)
     #snr = (max_dm - dmean) / dstd
     snr = SN
 
-   
+
     if weight is None:
       peak = dm_curve.argmax()
       width = _get_window(dm_curve) / 2
-      Start,Stop = _check_window(dm_curve, width)   
-    else: 
+      Start,Stop = _check_window(dm_curve, width)
+    else:
       w_dm_curve = np.multiply(weight,dm_curve)
       peak = dm_curve.argmax()
       curve = power_spectra[low_idx+1:low_idx+2].sum(axis=0)
@@ -1069,12 +1069,16 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
       #Start,Stop = _check_window(w_dm_curve, width)
       #Heavy_weights = np.argwhere(weight>1e-6)
       Heavy_weights = np.argwhere( dm_curve > .5*dm_curve[peak] )
+      if len(Heavy_weights) < 5:
+        Heavy_weights = np.argwhere( dm_curve > .25*dm_curve[peak] )
+      if len(Heavy_weights) < 5:
+        Heavy_weights = np.argwhere( dm_curve > .1*dm_curve[peak] )
       #width = int(np.mean((Heavy_weights-peak)**2)**0.5/2)
-      peak  = np.mean(Heavy_weights) 
-      width = (np.max(Heavy_weights)-np.min(Heavy_weights)) 
-      if width ==0: width=1
+      peak  = np.mean(Heavy_weights)
+      width = (np.max(Heavy_weights)-np.min(Heavy_weights))
       Start = Heavy_weights[np.argmin(np.absolute( (peak - width)-Heavy_weights ) ) ]
       Stop =  Heavy_weights[np.argmin(np.absolute( (peak + width)-Heavy_weights ) ) ]
+
       if Start< 0: Start=0
       if Stop > np.size(w_dm_curve): Stop = np.size(w_dm_curve)
     #plot_range = np.arange(peak - width, peak + width)
@@ -1082,12 +1086,12 @@ def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
     y = dm_curve[plot_range]
     x = dm_list[plot_range]
 
-   
+
     #snr = max_dm
-    
+
     if weight is None:
       New_W = 1.0 *  np.ones(x.shape) / np.sum( np.ones(x.shape) )
-    else: 
+    else:
       New_W = weight[plot_range]/np.sum(weight[plot_range])
 
     returns_poly = _poly_max(x, y, dstd, w = New_W)
@@ -1146,9 +1150,9 @@ if __name__ == "__main__":
     args = _get_parser()
     import psrchive
     dm, dm_std = from_PSRCHIVE(
-        args.fname, 
-        args.DM_s, 
-        args.DM_e, 
+        args.fname,
+        args.DM_s,
+        args.DM_e,
         args.DM_step,
         ref_freq = args.ref_freq,
         manual_cutoff = args.manual_cutoff,
