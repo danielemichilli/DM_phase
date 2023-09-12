@@ -900,7 +900,8 @@ def from_PSRCHIVE(fname, dm_s, dm_e, dm_step, ref_freq="top",
 
 def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
            manual_cutoff=False, manual_bandwidth=False, fname="",
-           no_plots=False, blackonwhite=False, fformat=".pdf"):
+           no_plots=False, blackonwhite=False, fformat=".pdf",
+           output_snr=False):
     """Brute-force search of the Dispersion Measure of a waterfall numpy
     matrix. The algorithm uses phase information and is robust to
     interference and unusual burst shapes.
@@ -924,6 +925,8 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         If False, use the full frequency bandwidth.
     fname : str, optional. Default = ""
         Filename used as a prefix for the diagnostic plots.
+    output_snr : bool, optional. Default = False
+        If True, return the peak S/N as a third variable.
 
     Returns
     -------
@@ -931,6 +934,8 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         Best value of dispersion measure, in pc/cc.
     dm_std :
         Standard deviation of the dispersion measure, in pc/cc.
+    output_snr : float
+        Peak S/N, only when `output_snr` is True.
 
     """
     if manual_bandwidth:
@@ -1016,7 +1021,10 @@ def get_dm(waterfall, dm_list, t_res, f_channels, ref_freq="top",
         dstd     = dstd,
         SN = np.max(SNR)
     )
-    return dm, dm_std
+    if output_snr:
+        return dm, dm_std, np.max(SNR)
+    else:
+        return dm, dm_std
 
 
 def _dm_calculation(waterfall, power_spectra, dpower_spectra, low_idx, up_idx,
