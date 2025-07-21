@@ -717,8 +717,8 @@ def _check_window(profile, window):
         window += np.abs(peak_value - peak) / 2
         peak_value = (peak_value + peak) / 2
 
-    start = np.int(peak_value - np.round(1.25 * window))
-    end = np.int(peak_value + np.round(1.25 * window))
+    start = int(peak_value - np.round(1.25 * window))
+    end = int(peak_value + np.round(1.25 * window))
 
     if start < 0:
         start = 0
